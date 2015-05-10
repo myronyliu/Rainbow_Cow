@@ -235,7 +235,7 @@ struct EdgeComp{
 };
 class MeshObject: public Object{
 public:
-    MeshObject(std::string filename) : Object(),_approximationMethod(QUADRIC_APPROXIMATION_METHOD),_t(10) { _filename = filename; };
+    MeshObject(std::string filename) : Object(),_approximationMethod(QUADRIC_APPROXIMATION_METHOD),_t(10),_allowFins(false) { _filename = filename; };
     ~MeshObject() {
         glBindVertexArray(0);
         glDeleteVertexArrays(1, &_vertexArrayID);
@@ -254,6 +254,11 @@ public:
     void collapse(const int& v0, const int& v1);
     void collapse(const int& v0, const int& v1, const int& approximationMethod);
     void collapseRandomEdge(const int& approximationMethod = MIDPOINT_APPROXIMATION_METHOD);
+
+    void allowFins() { _allowFins = true; }
+    void disallowFins() { _allowFins = false; }
+    float faceArea(const int& f);
+    glm::vec3 faceNormal(const int& f);
 
     void reComputeQuadrics();
     void reComputeMetrics();
@@ -277,6 +282,9 @@ protected:
     bool _vertexNormalsReady;
     bool _quadricsReady;
     bool _metricsReady;
+
+    bool _allowFins;
+
     int _approximationMethod;
 
     std::string _filename;
@@ -288,7 +296,14 @@ protected:
     std::vector<glm::vec4> _vertexColors;
     std::vector<Face> _faces;
     std::vector<glm::vec3> _faceNormals;
-    std::vector<int> _indices;
+    std::vector<float> _faceAreas;
+    std::vector<int> _triangleIndices;
+    std::vector<int> _lineIndices;
+
+    glm::vec3 _scale;
+
+    std::vector<glm::vec3> _vertexNormalTailHeads;
+    std::vector<glm::vec4> _vertexNormalTailHeadColors;
 
     float _t; // the distance threshold for quadric simplification
     std::vector<glm::mat4> _quadrics;

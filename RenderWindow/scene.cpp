@@ -369,9 +369,13 @@ vector<float> MeshObject::readGeom(){
     _vertices.reserve(nV);
     _vertexNormals.reserve(nV);
     _vertexColors.reserve(nV);
+    _vertexNormalTailHeads.reserve(2*nV);
+    _vertexNormalTailHeadColors.reserve(2 * nV);
     _faces.reserve(nF);
-    _indices.reserve(3 * nF);
+    _triangleIndices.reserve(3 * nF);
+    _lineIndices.reserve(2 * nF);
     _faceNormals.reserve(nF);
+    _faceAreas.reserve(nF);
     string s0, s1, s2;
     float xMin = 0;
     float xMax = 0;
@@ -400,7 +404,12 @@ vector<float> MeshObject::readGeom(){
             if (y > yMax) yMax = y;
             if (z > zMax) zMax = z;
         }
-        //_colors.push_back(vec4((float)rand() / RAND_MAX, (float)rand() / RAND_MAX, (float)rand() / RAND_MAX, 1));
+        _lineIndices.push_back(2 * i + 0);
+        _lineIndices.push_back(2 * i + 1);
+        _vertexNormalTailHeads.push_back(vec3(0, 0, 1));
+        _vertexNormalTailHeads.push_back(vec3(0, 0, 1));
+        _vertexNormalTailHeadColors.push_back(vec4(0, 0, 0, 0));
+        _vertexNormalTailHeadColors.push_back(vec4(0, 0, 0, 0));
         _vertices.push_back(vec3(x, y, z));
         _vertexColors.push_back(vec4(1, 1, 1, 1));
         _vertexNormals.push_back(vec3(0, 0, 1)); // default normals to z-hat until computed
@@ -423,8 +432,9 @@ vector<float> MeshObject::readGeom(){
         int v2 = atoi(s2.c_str());
         Face f = { v0, v1, v2 };
         _faces.push_back(f);
-        _indices.push_back(v0); _indices.push_back(v1); _indices.push_back(v2);
+        _triangleIndices.push_back(v0); _triangleIndices.push_back(v1); _triangleIndices.push_back(v2);
         _faceNormals.push_back(vec3(0, 0, 1));
+        _faceAreas.push_back(0);
         _adjacency[v0].insert(_faces.size() - 1);
         _adjacency[v1].insert(_faces.size() - 1);
         _adjacency[v2].insert(_faces.size() - 1);
@@ -434,6 +444,7 @@ vector<float> MeshObject::readGeom(){
         d /= 3 * nF;
         dAvg += d;
     }
+    _scale = vec3(xMax - xMin, yMax - yMin, zMax - zMin);
     printf("\n");
     printf("PROCESSING: Vertex/Face Normals\n");
     reComputeVertexNormals();
@@ -496,7 +507,15 @@ bool intersect_union(const set<int>& fSet0, const set<int>& fSet1, set<int>& fIn
 }
 void MeshObject::collapse(const int& v0, const int& v1) { collapse(v0, v1, _approximationMethod); }
 void MeshObject::collapse(const int& v0, const int& v1, const int& approximationMethod) { // the former vertex is kept. the latter is discarded from adjacency
-    if (_adjacency.size() < 3) return;
+    if (_adjacency.size() < 3) {
+        for (auto m = _adjacency.begin(); m != _adjacency.end(); m++) {
+            _lineIndices[2 * m->first + 0] = 0;
+            _lineIndices[2 * m->first + 1] = 0;
+        }
+        return;
+    }
+    _lineIndices[2 * v1 + 0] = 0;
+    _lineIndices[2 * v1 + 1] = 0;
     _vertices[v0] = mergedCoordinates(v0, v1, approximationMethod);
     set<int> fSet0 = _adjacency[v0];
     set<int> fSet1 = _adjacency[v1];
@@ -505,9 +524,9 @@ void MeshObject::collapse(const int& v0, const int& v1, const int& approximation
 
     vector<int> vFinVec; // the third vertices (!=v0 && !=v1) of the shared faces
     for (set<int>::iterator f = fIntersect.begin(); f != fIntersect.end(); f++) { // For each of the shared faces
-        _indices[3 * (*f) + 0] = 0; // Make the shared face degenerate in the index buffer so it doesn't get drawn
-        _indices[3 * (*f) + 1] = 0;
-        _indices[3 * (*f) + 2] = 0;
+        _triangleIndices[3 * (*f) + 0] = 0; // Make the shared face degenerate in the index buffer so it doesn't get drawn
+        _triangleIndices[3 * (*f) + 1] = 0;
+        _triangleIndices[3 * (*f) + 2] = 0;
         for (int corner = 0; corner < 3; corner++) { // For each vertex that is connected to the shared face _faces[*f][v] ...
             set<int>::iterator it = _adjacency[_faces[*f][corner]].find(*f); // Remove the shared face *f from that vertex's list of adjacent faces
             if (it != _adjacency[_faces[*f][corner]].end()) _adjacency[_faces[*f][corner]].erase(it);
@@ -521,10 +540,12 @@ void MeshObject::collapse(const int& v0, const int& v1, const int& approximation
         int newCorner = 0;
         for (int corner = 0; corner < 3; corner++) {
             if (_faces[*f][corner] == v0) { // if face already has v0 as a corner then it becomes degenerate, and we remove it
+                _lineIndices[2 * _faces[*f][corner] + 0] = 0;
+                _lineIndices[2 * _faces[*f][corner] + 1] = 0;
                 for (int i = 0; i < 3; i++){
-                    _indices[3 * (*f) + 0] = 0;
-                    _indices[3 * (*f) + 1] = 0;
-                    _indices[3 * (*f) + 2] = 0;
+                    _triangleIndices[3 * (*f) + 0] = 0;
+                    _triangleIndices[3 * (*f) + 1] = 0;
+                    _triangleIndices[3 * (*f) + 2] = 0;
                     set<int>::iterator it = _adjacency[_faces[*f][i]].find(*f);
                     _adjacency[_faces[*f][i]].erase(it);
                     if (_adjacency[_faces[*f][i]].size() == 0) _adjacency.erase(_faces[*f][i]);
@@ -534,7 +555,7 @@ void MeshObject::collapse(const int& v0, const int& v1, const int& approximation
             if (_faces[*f][corner] == v1) newCorner = corner;
             if (corner == 2) { // otherwise if we get to the end of the loop, replacing v1 with v0 in the face is no problem, so we proceed as such
                 _faces[*f][newCorner] = v0;
-                _indices[3 * (*f) + newCorner] = v0;
+                _triangleIndices[3 * (*f) + newCorner] = v0;
                 _adjacency[v0].insert(*f); // DON'T FORGET TO ADD V1's NEIGHBORS TO V0's ADJACENCY
             }
         }
@@ -546,20 +567,25 @@ void MeshObject::collapse(const int& v0, const int& v1, const int& approximation
     for (set<int>::iterator f = fSet0.begin(); f != fSet0.end(); f++) {
         vec3 p[3] = { _vertices[_faces[*f][0]], _vertices[_faces[*f][1]], _vertices[_faces[*f][2]] };
         for (int c = 0; c < 3; c++) vSet0.insert(_faces[*f][c]);
-        _faceNormals[*f] = normalize(cross(p[1] - p[0], p[2] - p[0]));
+        vec3 n = cross(p[1] - p[0], p[2] - p[0]);
+        _faceAreas[*f] = n.length();
+        _faceNormals[*f] = normalize(n);
     }
-    // Update normals for VERTICES adjacent to above faces
+    // Update normals for VERTICES adjacent to above faces (including v0 itself)
     for (set<int>::iterator v = vSet0.begin(); v != vSet0.end(); v++) {
-        vec3 normal(0, 0, 0);
+        vec3 n(0, 0, 0);
+        float nScale = 0;
         for (set<int>::iterator fs = _adjacency[*v].begin(); fs != _adjacency[*v].end(); fs++) {
-            normal += _faceNormals[*fs];
+            n += _faceNormals[*fs];
+            nScale += _faceAreas[*fs];
         }
-        _vertexNormals[*v] = normal / (float)_adjacency[*v].size();
-        // RAINBOW COWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-        float thetaX = acos(dot(_vertexNormals[*v], vec3(1, 0, 0)));
-        float thetaY = acos(dot(_vertexNormals[*v], vec3(0, 1, 0)));
-        float thetaZ = acos(dot(_vertexNormals[*v], vec3(0, 0, 1)));
-        _vertexColors[*v] = vec4(0.75*cos(thetaX / 1.5), 0.75*cos(thetaY / 1.5), 0.75*cos(thetaZ / 1.5), 1);
+        n = normalize(n / (float)_adjacency[*v].size());
+        nScale = sqrt(nScale / (float)_adjacency[*v].size()) / 8;
+        _vertexNormals[*v] = n;
+        _vertexNormalTailHeads[2 * (*v) + 0] = _vertices[*v];
+        _vertexNormalTailHeads[2 * (*v) + 1] = _vertices[*v] + nScale*n;
+        _vertexNormalTailHeadColors[2 * (*v) + 0] = _vertexColors[*v];
+        _vertexNormalTailHeadColors[2 * (*v) + 1] = _vertexColors[*v];
     }
     // Remove from _metrics all the vertex pairs that contain v1
     for (map<int, set<int>>::iterator adj = _adjacency.begin(); adj != _adjacency.end(); adj++) {
@@ -574,32 +600,42 @@ void MeshObject::collapse(const int& v0, const int& v1, const int& approximation
     // And update Quadrics (BLARGH... this order of operations stuff is driving me mad)
     updateLocalQuadricsAndMetrics(v0);
     // FINALLY! remove the fins if any exist ---------------------------------------------
-    for (int i = 0; i < vFinVec.size(); i++) {
-        fSet0 = _adjacency[v0];
-        int vFin = vFinVec[i];
-        int uFin = -1; // the third vertex index of the fin
-        int fFin = -1; // the face index of the fin
-        bool finFound = false;
-        for (set<int>::iterator f = fSet0.begin(); f != fSet0.end(); f++) {
-            Face corners = _faces[*f];
-            for (int j = 0; j < 3; j++) {
-                if (corners[j] != vFin) continue;
-                int u = 0;
-                if (corners[(j + 1) % 3] == v0) u = corners[(j + 2) % 3];
-                else u = corners[(j + 1) % 3];
-                if (u != uFin) {
-                    uFin = u;
-                    fFin = *f;
+    if (_allowFins == false) {
+        for (int i = 0; i < vFinVec.size(); i++) {
+            fSet0 = _adjacency[v0];
+            int vFin = vFinVec[i];
+            int uFin = -1; // the third vertex index of the fin
+            int fFin = -1; // the face index of the fin
+            bool finFound = false;
+            for (set<int>::iterator f = fSet0.begin(); f != fSet0.end(); f++) {
+                Face corners = _faces[*f];
+                for (int j = 0; j < 3; j++) {
+                    if (corners[j] != vFin) continue;
+                    int u = 0;
+                    if (corners[(j + 1) % 3] == v0) u = corners[(j + 2) % 3];
+                    else u = corners[(j + 1) % 3];
+                    if (u != uFin) {
+                        uFin = u;
+                        fFin = *f;
+                    }
+                    else {
+                        finFound = true;
+                        collapse(uFin, vFin, approximationMethod); // to remove fin call collapseEdge(_,_) recursively
+                        collapse(v0, uFin, approximationMethod); // NOTE: the order of arguments in both lines
+                    }
+                    break;
                 }
-                else {
-                    finFound = true;
-                    collapse(uFin, vFin, approximationMethod); // to remove fin call collapseEdge(_,_) recursively
-                    collapse(v0, uFin, approximationMethod); // NOTE: the order of arguments in both lines
-                }
-                break;
             }
+            if (finFound == true) continue;
         }
-        if (finFound == true) continue;
+    }
+    // RAINBOW COWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+    for (set<int>::iterator v = vSet0.begin(); v != vSet0.end(); v++) {
+        float thetaX = acos(dot(_vertexNormals[*v], vec3(1, 0, 0)));
+        float thetaY = acos(dot(_vertexNormals[*v], vec3(0, 1, 0)));
+        float thetaZ = acos(dot(_vertexNormals[*v], vec3(0, 0, 1)));
+        _vertexColors[*v] = vec4(0.75*cos(thetaX / 2.0), 0.75*cos(thetaY / 2.0), 0.75*cos(thetaZ / 2.0), 1);
+        if (_vertexColors[*v] == vec4(0, 0, 0, 0)) printf("%f %f %f\n", _vertexNormals[*v][0], _vertexNormals[*v][1], _vertexNormals[*v][2]);
     }
 }
 
@@ -653,41 +689,59 @@ bool MeshObject::isEdge(const int& v0, const int& v1) {
     }
     return false;
 }
+float MeshObject::faceArea(const int& f) {
+    vec3 p0 = _vertices[_faces[f][0]];
+    vec3 p1 = _vertices[_faces[f][1]];
+    vec3 p2 = _vertices[_faces[f][2]];
+    vec3 e01 = p1 - p0; // edge 0->1 of face
+    vec3 e02 = p2 - p0; //      0->2
+    return cross(e01, e02).length();
+}
+vec3 MeshObject::faceNormal(const int& f) {
+    vec3 p0 = _vertices[_faces[f][0]];
+    vec3 p1 = _vertices[_faces[f][1]];
+    vec3 p2 = _vertices[_faces[f][2]];
+    vec3 e01 = p1 - p0; // edge 0->1 of face
+    vec3 e02 = p2 - p0; //      0->2
+    return normalize(cross(e01, e02));
+}
 void MeshObject::reComputeFaceNormals() {
-    for (int i = 0; i < _faces.size(); i++) {
-        vec3 p0 = _vertices[_faces[i][0]];
-        vec3 p1 = _vertices[_faces[i][1]];
-        vec3 p2 = _vertices[_faces[i][2]];
+    for (int f = 0; f < _faces.size(); f++) {
+        vec3 p0 = _vertices[_faces[f][0]];
+        vec3 p1 = _vertices[_faces[f][1]];
+        vec3 p2 = _vertices[_faces[f][2]];
         vec3 e01 = p1 - p0; // edge 0->1 of face
         vec3 e02 = p2 - p0; //      0->2
-        _faceNormals[i] = normalize(cross(e01, e02));
+        vec3 n = cross(e01, e02);
+        _faceAreas[f] = n.length();
+        _faceNormals[f] = normalize(n);
     }
     _faceNormalsReady = true;
 }
 void MeshObject::reComputeVertexNormals() {
     if (_faceNormalsReady == false) reComputeFaceNormals();
     for (map<int, set<int>>::const_iterator i = _adjacency.begin(); i != _adjacency.end(); i++){
-        vec3 normal(0, 0, 0);
+        vec3 n(0, 0, 0);
+        float nScale = 0;
         set<int> adjFaces = i->second; // adjacent faces
         for (set<int>::iterator j = adjFaces.begin(); j != adjFaces.end(); j++){
-            normal += _faceNormals[*j];
+            n += _faceNormals[*j];
+            nScale += _faceAreas[*j];
         }
-        _vertexNormals[i->first] = normal / (float)adjFaces.size();
+        n = normalize(n / (float)adjFaces.size());
+        nScale = sqrt(nScale / (float)adjFaces.size()) / 8;
+        _vertexNormals[i->first] = n;
+        _vertexNormalTailHeads[2 * (i->first) + 0] = _vertices[i->first];
+        _vertexNormalTailHeads[2 * (i->first) + 1] = _vertices[i->first] + nScale*n;
         // RAINBOW COWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
         float thetaX = acos(dot(_vertexNormals[i->first], vec3(1, 0, 0)));
         float thetaY = acos(dot(_vertexNormals[i->first], vec3(0, 1, 0)));
         float thetaZ = acos(dot(_vertexNormals[i->first], vec3(0, 0, 1)));
-        _vertexColors[i->first] = vec4(0.75*cos(thetaX / 1.5), 0.75*cos(thetaY / 1.5), 0.75*cos(thetaZ / 1.5), 1);
+        _vertexColors[i->first] = vec4(0.75*cos(thetaX / 2.0), 0.75*cos(thetaY / 2.0), 0.75*cos(thetaZ / 2.0), 1);
+        _vertexNormalTailHeadColors[2 * (i->first) + 0] = _vertexColors[i->first];
+        _vertexNormalTailHeadColors[2 * (i->first) + 1] = _vertexColors[i->first];
+        if (_vertexColors[i->first] == vec4(0, 0, 0, 0)) printf("%f %f %f\n", _vertexNormals[i->first][0], _vertexNormals[i->first][1], _vertexNormals[i->first][2]);
     }
-}
-void printMat4(const mat4& M) {
-    for (int j = 0; j < 4; j++) {
-        for (int i = 0; i < 4; i++) {
-            cout << M[i][j];
-        }
-        cout << endl;
-    }
-    cout << endl;
 }
 vec3 MeshObject::mergedCoordinates(const int& v0, const int& v1, const int& approximationMethod) {
     if (approximationMethod == MIDPOINT_APPROXIMATION_METHOD) return (_vertices[v0] + _vertices[v1]) / 2.0f;
@@ -813,7 +867,7 @@ void MeshObject::quadricSimplify() {
 }
 
 void MeshObject::updateIndexBuffer() {
-    _indices.clear();
+    _triangleIndices.clear();
     set<int> faceSet;
     for (map<int, set<int>>::const_iterator i = _adjacency.begin(); i != _adjacency.end(); i++){
         set<int> adjFaces = i->second; // adjacent faces
@@ -823,7 +877,7 @@ void MeshObject::updateIndexBuffer() {
     }
     for (set<int>::iterator i = faceSet.begin(); i != faceSet.end(); i++){
         for (int j = 0; j < 3; j++){
-            _indices.push_back(_faces[*i][j]);
+            _triangleIndices.push_back(_faces[*i][j]);
         }
     }
 }
@@ -831,7 +885,7 @@ void MeshObject::updateIndexBuffer() {
 void MeshObject::removeRedundancies() {
     MeshObject old = *this;
     _faces.clear();
-    _indices.clear();
+    _triangleIndices.clear();
     _pairMetric.clear();
     _quadrics.clear();
     _vertices.clear();
@@ -856,9 +910,9 @@ void MeshObject::removeRedundancies() {
         int c0 = vOld_vNew[old._faces[*f][0]];
         int c1 = vOld_vNew[old._faces[*f][1]];
         int c2 = vOld_vNew[old._faces[*f][2]];
-        _indices.push_back(c0);
-        _indices.push_back(c1);
-        _indices.push_back(c2);
+        _triangleIndices.push_back(c0);
+        _triangleIndices.push_back(c1);
+        _triangleIndices.push_back(c2);
         _faces.push_back({ c0, c1, c2 });
         _faceNormals.push_back(old._faceNormals[*f]);
     }
@@ -875,7 +929,7 @@ void MeshObject::doDraw()
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_NORMAL_ARRAY);
     glEnableClientState(GL_COLOR_ARRAY);
-
+    
     glVertexPointer(3, GL_FLOAT, 0, &_vertices[0]);
     glNormalPointer(GL_FLOAT, 0, &_vertexNormals[0]);
     glColorPointer(4, GL_FLOAT, 0, &_vertexColors[0]);
@@ -883,28 +937,23 @@ void MeshObject::doDraw()
     GLuint IBO;
     glGenBuffers(1, &IBO);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(int)*_indices.size(), &_indices[0], GL_STATIC_DRAW);
-
-    //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-    glDrawElements(GL_TRIANGLES, _indices.size(), GL_UNSIGNED_INT, 0);
-
-    
-    /* glEnableClientState(GL_VERTEX_ARRAY);
-    vector<glm::vec3> asdf;
-    asdf.reserve(2 * _vertices.size());
-    for (int i = 0; i < _vertices.size(); i++) {
-        asdf.push_back(_vertices[i]);
-        asdf.push_back(_vertices[i] + _faceNormals[i] / 5.0f);
-    }
-
-    glVertexPointer(3, GL_FLOAT, 0, &asdf[0]);
-
-    glGenBuffers(1, &IBO);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(int)*asdf.size(), &asdf[0], GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(int)*_triangleIndices.size(), &_triangleIndices[0], GL_STATIC_DRAW);
 
     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-    glDrawArrays(GL_LINES, 0, asdf.size()); */
+    glDrawElements(GL_TRIANGLES, _triangleIndices.size(), GL_UNSIGNED_INT, 0);
+    
+    /////////////////////////////
+    ///// ALSO DRAW NORMALS /////
+    /////////////////////////////
+
+    glVertexPointer(3, GL_FLOAT, 0, &_vertexNormalTailHeads[0]);
+    glColorPointer(4, GL_FLOAT, 0, &_vertexNormalTailHeadColors[0]);
+    
+    glGenBuffers(1, &IBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(int)*_lineIndices.size(), &_lineIndices[0], GL_STATIC_DRAW);
+
+    glDrawElements(GL_LINES, _lineIndices.size(), GL_UNSIGNED_INT, 0);
 
     return;
 }
