@@ -235,25 +235,57 @@ struct EdgeComp{
 };
 class MeshObject: public Object{
 public:
-    MeshObject(std::string filename) : Object(),_approximationMethod(QUADRIC_APPROXIMATION_METHOD),_t(10),_allowFins(false) { _filename = filename; };
+    MeshObject(std::string iFileName) : Object() {
+        _t = 1;
+        _allowFins = false;
+        _saveCollapses = true;
+        _drawVertexNormals = true;
+        _aggressiveSimplification = true;
+        _approximationMethod = QUADRIC_APPROXIMATION_METHOD;
+        _iFileName = iFileName;
+        _oFileName = iFileName + "pm";
+    }
     ~MeshObject() {
         glBindVertexArray(0);
         glDeleteVertexArrays(1, &_vertexArrayID);
     }
+    float avgEdgeLength();
     bool isEdge(const int& v0, const int& v1);
     void doDraw();
+    int nCollapsablePairs() { return _pairMetric.size(); }
+    int nVisibleVertices() { return _adjacency.size(); }
+    int nVisibleFaces();
+    std::vector<int> visibleFaces();
     int nVertices() { return _vertices.size(); }
     int nFaces() { return _faces.size(); }
     int approximationMethod() { return _approximationMethod; }
     void setApproximationMethod(const int& approximationMethod) { _approximationMethod = approximationMethod; }
     void setT(const float& t);
-    void setFilename(const std::string& filename) { _filename = filename; _geomReady = false; }
+    std::string inFileName() { return _iFileName; }
+    std::string outFileName() { return _oFileName; }
+    void setInFileName(const std::string& iFileName) { _iFileName = iFileName; _geomReady = false; }
+    void setOutFileName(const std::string& oFileName) { _oFileName = oFileName; }
+
     Edge randomEdge();
     glm::vec3 mergedCoordinates(const int& v0, const int& v1, const int& approximationMethod);
     glm::vec3 mergedCoordinates(const int& v0, const int& v1) { return mergedCoordinates(v0, v1, _approximationMethod); }
     void collapse(const int& v0, const int& v1);
     void collapse(const int& v0, const int& v1, const int& approximationMethod);
     void collapseRandomEdge(const int& approximationMethod = MIDPOINT_APPROXIMATION_METHOD);
+
+    std::string currentMeshString();
+    void writeCollapse(
+        const int& v0,
+        const glm::vec3& xyz0,
+        const std::set<int>& fSet0,
+        const int& v1,
+        const glm::vec3& xyz1,
+        const std::set<int>& fSet1,
+        const int& v,
+        const glm::vec3& xyz,
+        const std::set<int>& fSet,
+        const std::set<int>& fSetR);
+    void makeProgressiveMeshFile();
 
     void allowFins() { _allowFins = true; }
     void disallowFins() { _allowFins = false; }
@@ -282,12 +314,18 @@ protected:
     bool _vertexNormalsReady;
     bool _quadricsReady;
     bool _metricsReady;
+    bool _drawVertexNormals;
 
     bool _allowFins;
 
     int _approximationMethod;
 
-    std::string _filename;
+    std::string _iFileName;
+    std::string _oFileName;
+    std::string _collapseString;
+    bool _saveCollapses;
+    bool _aggressiveSimplification;
+
     std::map<int, std::set<int>> _adjacency;
     GLuint _vertexArrayID;
 
@@ -311,8 +349,41 @@ protected:
     std::map<float, std::set<Edge>> _metricPairs;
 };
 
+class ProgressiveMeshObject : public MeshObject {
+public:
+    ProgressiveMeshObject(std::string iFileName) : MeshObject(iFileName) {
+        _drawVertexNormals = false;
+        _iFileName = iFileName;
+    }
+    ~ProgressiveMeshObject() {
+        glBindVertexArray(0);
+        glDeleteVertexArrays(1, &_vertexArrayID);
+    }
+    std::vector<float> readGeom();
+    void collapseTo(const float& pos);
+protected:
+    std::vector<int> _v0;
+    std::vector<int> _v1;
+    std::vector<int> _v;
+    std::vector<glm::vec3> _xyz0; // coordinates of v0 before collapse
+    std::vector<glm::vec3> _xyz1; // coordinates of v1 before collapse
+    std::vector<glm::vec3> _xyz;  // coordinates of merge(v0,v1) after collapse (REPLACES xyz0)
+    std::vector<std::vector<int>> _fVec0;
+    std::vector<std::vector<int>> _fVec1;
+    std::vector<std::vector<int>> _fVec;
+    std::vector<std::vector<int>> _fVecR; // shared faces to remove
+    std::vector<std::vector<int>> _fVecRx;
+    std::vector<std::vector<int>> _fVecRy;
+    std::vector<std::vector<int>> _fVecRz; // the corner vertex index NOT EQUAL to v0 or v1
 
+
+    float _position; // our curren position in the collapse history
 };
+
+
+
+
+}
 
 
 #endif

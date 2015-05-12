@@ -20,7 +20,8 @@ int main(int argc, char* argv[])
     std::cout << "OpenGL " << std::string((char *)glGetString(GL_VERSION)) << std::endl;
     std::cout << "====================================================" << std::endl;
 
-    Scene::MeshObject * meshObject = new Scene::MeshObject("models/cow.off");
+    //Scene::MeshObject * meshObject = new Scene::MeshObject("models/sphere.off");
+    Scene::ProgressiveMeshObject * meshObject = new Scene::ProgressiveMeshObject("models/sphere.offpm");
     std::vector<float> bounds = meshObject->readGeom();
 
     float xSpan = bounds[1] - bounds[0];
@@ -89,17 +90,33 @@ int main(int argc, char* argv[])
         meshObject->collapse(e.first, e.second, Scene::MIDPOINT_APPROXIMATION_METHOD);
     };
     auto zlambda = [&]() {
-        meshObject->collapseRandomEdge();
+        int nVV = meshObject->nVisibleVertices();
+        int n = fmax(1, nVV / 100);
+        printf("Random edge midpoint collapsing %i times...\n", n);
+        for (int i = 0; i < n; i++) meshObject->collapseRandomEdge();
     };
     auto xlambda = [&]() {
-        meshObject->quadricSimplify();
+        int nCP = meshObject->nCollapsablePairs();
+        int n = fmax(1, sqrt(nCP) / 2);
+        printf("Quadric simplifying %i times...\n", n);
+        for (int i = 0; i < n; i++) {
+            meshObject->quadricSimplify();
+        }
+        //meshObject->quadricSimplify();
     };
+    auto plambda = [&]() {
+        printf("Writing progressive mesh data to %s\n", meshObject->outFileName());
+        meshObject->makeProgressiveMeshFile();
+    };
+    //auto pluslambda = [&]() {
+    //    meshObject->collapseTo(nVertices())
+    //};
+
     keyboard.register_hotkey('a', alambda);
     keyboard.register_hotkey('s', slambda);
     keyboard.register_hotkey('z', zlambda);
     keyboard.register_hotkey('x', xlambda);
-
-
+    keyboard.register_hotkey('p', plambda);
 
     MANAGER.drawElements();
 
