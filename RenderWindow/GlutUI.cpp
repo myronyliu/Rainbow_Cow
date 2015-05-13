@@ -250,17 +250,17 @@ void Panel::draw()
 
 void Button::draw()
 {
-    //glPushMatrix();
-    //glColor4d(1.0, 1.0, 1.0, 0.2);
-    //GlutDraw::drawRectangle(getXPos(), getYPos(), getWidth(), getHeight());
-    //
-    //glColor4d(1.0, 1.0, 1.0, 0.2);
-    //glBegin(GL_QUADS);
-    //    glVertex2d(getXPos(), getYPos());
-    //    glVertex2d(getXPos() + getWidth(), getYPos());
-    //    glVertex2d(getXPos() + getWidth(), getYPos() + getHeight());
-    //    glVertex2d(getXPos(), getYPos() + getHeight());
-    //glEnd();
+    glPushMatrix();
+    glColor4d(1.0, 1.0, 1.0, 0.2);
+    GlutDraw::drawRectangle(getXPos(), getYPos(), getWidth(), getHeight());
+    
+    glColor4d(1.0, 1.0, 1.0, 0.2);
+    glBegin(GL_QUADS);
+        glVertex2d(getXPos(), getYPos());
+        glVertex2d(getXPos() + getWidth(), getYPos());
+        glVertex2d(getXPos() + getWidth(), getYPos() + getHeight());
+        glVertex2d(getXPos(), getYPos() + getHeight());
+    glEnd();
 }
 
 void Controls::Mouse::init()
@@ -313,7 +313,7 @@ void Controls::Mouse::_motion(int x, int y)
     }
     else if(_buttons[2])
     {
-        _camera->setTz( _camera->getTz() - (float) 0.05f * diffx);
+        _camera->setTz(_camera->getTz() * exp(0.01f*diffx) + 0.0001);
     }
     else if(_buttons[1])
     {

@@ -8,7 +8,8 @@
 namespace Scene
 {
 enum{
-    MIDPOINT_APPROXIMATION_METHOD = 0,
+    BINARY_APPROXIMATION_METHOD = 0,
+    MIDPOINT_APPROXIMATION_METHOD = 1,
     QUADRIC_APPROXIMATION_METHOD = 2
 };
 
@@ -237,9 +238,10 @@ class MeshObject: public Object{
 public:
     MeshObject(std::string iFileName) : Object() {
         _t = 1;
+        _nCollapses = 0;
         _allowFins = false;
         _saveCollapses = true;
-        _drawVertexNormals = true;
+        _drawVertexNormals = false;
         _aggressiveSimplification = true;
         _approximationMethod = QUADRIC_APPROXIMATION_METHOD;
         _iFileName = iFileName;
@@ -249,6 +251,7 @@ public:
         glBindVertexArray(0);
         glDeleteVertexArrays(1, &_vertexArrayID);
     }
+    bool isBoundary(const int& v);
     float avgEdgeLength();
     bool isEdge(const int& v0, const int& v1);
     void doDraw();
@@ -271,6 +274,8 @@ public:
     glm::vec3 mergedCoordinates(const int& v0, const int& v1) { return mergedCoordinates(v0, v1, _approximationMethod); }
     void collapse(const int& v0, const int& v1);
     void collapse(const int& v0, const int& v1, const int& approximationMethod);
+    void collapseTo(const float& dummy) { return; }
+    int complexity(){ return _adjacency.size(); }
     void collapseRandomEdge(const int& approximationMethod = MIDPOINT_APPROXIMATION_METHOD);
 
     std::string currentMeshString();
@@ -316,6 +321,8 @@ protected:
     bool _metricsReady;
     bool _drawVertexNormals;
 
+    int _nCollapses;
+
     bool _allowFins;
 
     int _approximationMethod;
@@ -360,7 +367,9 @@ public:
         glDeleteVertexArrays(1, &_vertexArrayID);
     }
     std::vector<float> readGeom();
-    void collapseTo(const float& pos);
+    void collapseTo(const float& newComplexity);
+    void makeProgressiveMeshFile() { return; }
+    float complexity() { return _complexity; }
 protected:
     std::vector<int> _v0;
     std::vector<int> _v1;
@@ -377,9 +386,8 @@ protected:
     std::vector<std::vector<int>> _fVecRz; // the corner vertex index NOT EQUAL to v0 or v1
 
 
-    float _position; // our curren position in the collapse history
+    float _complexity; // the current number of vertices
 };
-
 
 
 
