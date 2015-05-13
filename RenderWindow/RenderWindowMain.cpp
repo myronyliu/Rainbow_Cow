@@ -21,16 +21,22 @@ int main(int argc, char* argv[])
     std::cout << "====================================================" << std::endl;
 
 
-    //Scene::MeshObject * meshObject = new Scene::MeshObject("models/testpatch.off");
-    Scene::ProgressiveMeshObject * meshObject = new Scene::ProgressiveMeshObject("models/testpatch.offpm");
-    std::vector<float> bounds = meshObject->readGeom();
+    Scene::MeshObject * meshObject = new Scene::MeshObject("models/plane.off");
+    //Scene::ProgressiveMeshObject * meshObject = new Scene::ProgressiveMeshObject("models/ico.offpm");
+    meshObject->readGeom();
+    float xMin = meshObject->xMin();
+    float xMax = meshObject->xMax();
+    float yMin = meshObject->yMin();
+    float yMax = meshObject->yMax();
+    float zMin = meshObject->zMin();
+    float zMax = meshObject->zMax();
 
-    float xSpan = bounds[1] - bounds[0];
-    float ySpan = bounds[3] - bounds[2];
-    float zSpan = bounds[5] - bounds[4];
-    float xMid = (bounds[0] + bounds[1]) / 2;
-    float yMid = (bounds[2] + bounds[3]) / 2;
-    float zMid = (bounds[4] + bounds[5]) / 2;
+    float xSpan = xMax - xMin;
+    float ySpan = yMax - yMin;
+    float zSpan = zMax - zMin;
+    float xMid = (xMin + xMax) / 2;
+    float yMid = (yMin + yMax) / 2;
+    float zMid = (zMin + zMax) / 2;
 
     meshObject->setTx(-xMid);
     meshObject->setTy(-yMid);
@@ -38,19 +44,19 @@ int main(int argc, char* argv[])
     world.addObject(meshObject);
 
     float s = 0.5;
-    float xMin = -s*xSpan;
-    float yMin = -s*ySpan;
-    float zMin = -s*zSpan;
-    float xMax = s*xSpan;
-    float yMax = s*ySpan;
-    float zMax = s*zSpan;
+    float xAxisMin = -s*xSpan;
+    float yAxisMin = -s*ySpan;
+    float zAxisMin = -s*zSpan;
+    float xAxisMax = s*xSpan;
+    float yAxisMax = s*ySpan;
+    float zAxisMax = s*zSpan;
 
-    Scene::Arrow * xAxis = new Scene::Arrow(glm::vec3(xMin, yMin, zMin), glm::vec3(xMax, yMin, zMin), glm::vec4(1, 0, 0, 1));
-    Scene::Arrow * yAxis = new Scene::Arrow(glm::vec3(xMin, yMin, zMin), glm::vec3(xMin, yMax, zMin), glm::vec4(0, 1, 0, 1));
-    Scene::Arrow * zAxis = new Scene::Arrow(glm::vec3(xMin, yMin, zMin), glm::vec3(xMin, yMin, zMax), glm::vec4(0, 0, 1, 1));
-    world.addObject(xAxis);
-    world.addObject(yAxis);
-    world.addObject(zAxis);
+    Scene::Arrow * xAxis = new Scene::Arrow(glm::vec3(xAxisMin, yAxisMin, zAxisMin), glm::vec3(xAxisMax, yAxisMin, zAxisMin), glm::vec4(1, 0, 0, 1));
+    Scene::Arrow * yAxis = new Scene::Arrow(glm::vec3(xAxisMin, yAxisMin, zAxisMin), glm::vec3(xAxisMin, yAxisMax, zAxisMin), glm::vec4(0, 1, 0, 1));
+    Scene::Arrow * zAxis = new Scene::Arrow(glm::vec3(xAxisMin, yAxisMin, zAxisMin), glm::vec3(xAxisMin, yAxisMin, zAxisMax), glm::vec4(0, 0, 1, 1));
+    //world.addObject(xAxis);
+    //world.addObject(yAxis);
+    //world.addObject(zAxis);
 
     float maxSpan = std::max({ xSpan, ySpan, zSpan });
     float minSpan = std::min({ xSpan, ySpan, zSpan });
@@ -101,7 +107,7 @@ int main(int argc, char* argv[])
         int nCP = meshObject->nCollapsablePairs();
         int n = fmax(1, sqrt(nCP) / 2);
         n = 1;
-        printf("Quadric simplifying %i times...\n", n);
+        printf("%i  ", n);
         for (int i = 0; i < n; i++) {
             meshObject->quadricSimplify();
         }
@@ -112,10 +118,14 @@ int main(int argc, char* argv[])
         printf("Writing progressive mesh data to %s\n", meshObject->outFileName());
         meshObject->makeProgressiveMeshFile();
     };
-    auto eqlambda = [&]() {
-        meshObject->collapseTo(meshObject->complexity()+1);
+    auto pluslambda = [&]() {
+        meshObject->collapseTo(meshObject->complexity() + .1);
     };
-    keyboard.register_hotkey('=', eqlambda);
+    auto minuslambda = [&]() {
+        meshObject->collapseTo(meshObject->complexity() - .1);
+    };
+    keyboard.register_hotkey('=', pluslambda);
+    keyboard.register_hotkey('-', minuslambda);
     keyboard.register_hotkey('a', alambda);
     keyboard.register_hotkey('s', slambda);
     keyboard.register_hotkey('z', zlambda);

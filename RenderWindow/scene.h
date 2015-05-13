@@ -241,7 +241,7 @@ public:
         _nCollapses = 0;
         _allowFins = false;
         _saveCollapses = true;
-        _drawVertexNormals = false;
+        _drawVertexNormals = true;
         _aggressiveSimplification = true;
         _approximationMethod = QUADRIC_APPROXIMATION_METHOD;
         _iFileName = iFileName;
@@ -251,7 +251,8 @@ public:
         glBindVertexArray(0);
         glDeleteVertexArrays(1, &_vertexArrayID);
     }
-    bool isBoundary(const int& v);
+    bool atCorner(const int& v);
+    bool atBoundary(const int& v);
     float avgEdgeLength();
     bool isEdge(const int& v0, const int& v1);
     void doDraw();
@@ -259,7 +260,7 @@ public:
     int nVisibleVertices() { return _adjacency.size(); }
     int nVisibleFaces();
     std::vector<int> visibleFaces();
-    int nVertices() { return _vertices.size(); }
+    int nVertices() { return _vertexPositions.size(); }
     int nFaces() { return _faces.size(); }
     int approximationMethod() { return _approximationMethod; }
     void setApproximationMethod(const int& approximationMethod) { _approximationMethod = approximationMethod; }
@@ -311,32 +312,44 @@ public:
     void reComputeFaceNormals();
     void removeRedundancies();
     void updateIndexBuffer();
-    std::vector<float> readGeom();
+    void readGeom();
+
+    float xMin() { return _xMin; }
+    float xMax() { return _xMax; }
+    float yMin() { return _yMin; }
+    float yMax() { return _yMax; }
+    float zMin() { return _zMin; }
+    float zMax() { return _zMax; }
 
 protected:
+    float _xMin;
+    float _xMax;
+    float _yMin;
+    float _yMax;
+    float _zMin;
+    float _zMax;
+
     bool _geomReady;
-    bool _faceNormalsReady; // hm maybe I should also make a vector<bool> _faceNormalReady
-    bool _vertexNormalsReady;
-    bool _quadricsReady;
+    bool _allowFins;
     bool _metricsReady;
+    bool _quadricsReady;
+    bool _saveCollapses;
+    bool _faceNormalsReady; // hm maybe I should also make a vector<bool> _faceNormalReady
     bool _drawVertexNormals;
+    bool _vertexNormalsReady;
+    bool _aggressiveSimplification;
 
     int _nCollapses;
-
-    bool _allowFins;
-
     int _approximationMethod;
 
     std::string _iFileName;
     std::string _oFileName;
     std::string _collapseString;
-    bool _saveCollapses;
-    bool _aggressiveSimplification;
 
     std::map<int, std::set<int>> _adjacency;
     GLuint _vertexArrayID;
 
-    std::vector<glm::vec3> _vertices; // these are for feeding into the vertex, normal, index buffers
+    std::vector<glm::vec3> _vertexPositions; // these are for feeding into the vertex, normal, index buffers
     std::vector<glm::vec3> _vertexNormals;
     std::vector<glm::vec4> _vertexColors;
     std::vector<Face> _faces;
@@ -366,7 +379,7 @@ public:
         glBindVertexArray(0);
         glDeleteVertexArrays(1, &_vertexArrayID);
     }
-    std::vector<float> readGeom();
+    void readGeom();
     void collapseTo(const float& newComplexity);
     void makeProgressiveMeshFile() { return; }
     float complexity() { return _complexity; }
