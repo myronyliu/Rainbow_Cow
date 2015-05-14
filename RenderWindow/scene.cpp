@@ -424,7 +424,7 @@ void MeshObject::makeProgressiveMeshFile() {
     std::ofstream oFile;
     oFile.open(_oFileName);
     oFile << "OFFPM\n";
-    oFile << std::to_string(_vertexPositions.size()) + " " + std::to_string(_faces.size()) + '\n';
+    oFile << std::to_string(nVertices()) + " " + std::to_string(_faces.size()) + '\n';
     //oFile << std::to_string(_adjacency.size()) + " " + std::to_string(nVisibleFaces()) + " " + std::to_string(_vertexPositions.size() - _adjacency.size()) + "\n";
     oFile << std::to_string(_adjacency.size()) + ' ' + std::to_string(nVisibleFaces()) + ' ' + std::to_string(_nCollapses) + '\n';
     oFile << std::to_string(_xMin) + ' ' + std::to_string(_xMax) + ' ' + std::to_string(_yMin) + ' ' + std::to_string(_yMax) + ' ' + std::to_string(_zMin) + ' ' + std::to_string(_zMax) + '\n';
@@ -575,13 +575,13 @@ void MeshObject::collapse(const int& v0, const int& v1, const int& approximation
         printf("ERROR: There are no more pairs to collapse.\n");
         return;
     }
+    if (_adjacency.size() < 4) {
+        printf("WARNING: Only one triangle remains. Keeping it.\n");
+        return;
+    }
     int collapseCount = 1;
     int adjInSize = _adjacency.size();
     map<int, set<int>> adjIn = _adjacency;
-    //if (_adjacency.size() < 4) {
-    //    printf("No more triangle to collapse\n");
-    //    return;
-    //}
     _nCollapses++;
     vec3 xyz0 = _vertexPositions[v0];
     vec3 xyz1 = _vertexPositions[v1];
@@ -999,7 +999,7 @@ float MeshObject::avgEdgeLength() { // approximate cause i don't feel like deali
 }
 
 void MeshObject::quadricSimplify() {
-    if (_adjacency.size() == 1) printf("No geometry left to collapse.\n");
+    if (_adjacency.size() < 2) printf("No geometry left to collapse.\n");
     else {
         float minCost = _metricPairs.begin()->first;
         if (minCost < INFINITY) {

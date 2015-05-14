@@ -22,9 +22,9 @@ int main(int argc, char* argv[])
 
     Scene::Shader* rainbowShader = new Scene::Shader("shaders/rainbow_vert.glsl", "shaders/rainbow_frag.glsl");
 
-    std::string file = "ico";
-    //Scene::MeshObject * meshObject = new Scene::MeshObject("models/" + file + ".off");
-    Scene::ProgressiveMeshObject * meshObject = new Scene::ProgressiveMeshObject("models/" + file + ".offpm");
+    std::string file = "teapot";
+    Scene::MeshObject * meshObject = new Scene::MeshObject("models/" + file + ".off");
+    //Scene::ProgressiveMeshObject * meshObject = new Scene::ProgressiveMeshObject("models/" + file + ".offpm");
     world.assignShader(meshObject, rainbowShader);
     meshObject->allowFins();
     meshObject->readGeom();
@@ -110,8 +110,8 @@ int main(int argc, char* argv[])
     auto xlambda = [&]() {
         int nCP = meshObject->nCollapsablePairs();
         int n = fmax(1, sqrt(nCP) / 2);
-        n = 1;
-        //printf("%i  ", n);
+        //n = 1;
+        printf("%i  ", n);
         for (int i = 0; i < n; i++) {
             meshObject->quadricSimplify();
         }
