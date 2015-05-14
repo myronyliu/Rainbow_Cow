@@ -283,12 +283,15 @@ public:
     void writeCollapse(
         const int& v0,
         const glm::vec3& xyz0,
+        const glm::vec3& n0,
         const std::set<int>& fSet0,
         const int& v1,
         const glm::vec3& xyz1,
+        const glm::vec3& n1,
         const std::set<int>& fSet1,
         const int& v,
         const glm::vec3& xyz,
+        const glm::vec3& n,
         const std::set<int>& fSet,
         const std::set<int>& fSetR);
     void makeProgressiveMeshFile();
@@ -320,6 +323,13 @@ public:
     float yMax() { return _yMax; }
     float zMin() { return _zMin; }
     float zMax() { return _zMax; }
+
+    void test() {
+        for (std::map<int, std::set<int>>::iterator it = _adjacency.begin(); it != _adjacency.end(); it++) {
+            it->second = std::set<int>();
+        }
+        printf("BLAH BLAH BLAH BLAH: %i\n", _adjacency.size());
+    }
 
 protected:
     float _xMin;
@@ -361,7 +371,7 @@ protected:
     glm::vec3 _scale;
 
     std::vector<glm::vec3> _vertexNormalTailHeads;
-    std::vector<glm::vec4> _vertexNormalTailHeadColors;
+    std::vector<glm::vec3> _vertexNormalTailHeadNormals;
 
     float _t; // the distance threshold for quadric simplification
     std::vector<glm::mat4> _quadrics;
@@ -387,6 +397,9 @@ protected:
     std::vector<int> _v0;
     std::vector<int> _v1;
     std::vector<int> _v;
+    std::vector<glm::vec3> _n0;
+    std::vector<glm::vec3> _n1;
+    std::vector<glm::vec3> _n;
     std::vector<glm::vec3> _xyz0; // coordinates of v0 before collapse
     std::vector<glm::vec3> _xyz1; // coordinates of v1 before collapse
     std::vector<glm::vec3> _xyz;  // coordinates of merge(v0,v1) after collapse (REPLACES xyz0)

@@ -20,9 +20,13 @@ int main(int argc, char* argv[])
     std::cout << "OpenGL " << std::string((char *)glGetString(GL_VERSION)) << std::endl;
     std::cout << "====================================================" << std::endl;
 
+    Scene::Shader* rainbowShader = new Scene::Shader("shaders/rainbow_vert.glsl", "shaders/rainbow_frag.glsl");
 
-    Scene::MeshObject * meshObject = new Scene::MeshObject("models/plane.off");
-    //Scene::ProgressiveMeshObject * meshObject = new Scene::ProgressiveMeshObject("models/ico.offpm");
+    std::string file = "sphere";
+    Scene::MeshObject * meshObject = new Scene::MeshObject("models/" + file + ".off");
+    //Scene::ProgressiveMeshObject * meshObject = new Scene::ProgressiveMeshObject("models/" + file + ".offpm");
+    world.assignShader(meshObject, rainbowShader);
+    meshObject->allowFins();
     meshObject->readGeom();
     float xMin = meshObject->xMin();
     float xMax = meshObject->xMax();
@@ -107,7 +111,7 @@ int main(int argc, char* argv[])
         int nCP = meshObject->nCollapsablePairs();
         int n = fmax(1, sqrt(nCP) / 2);
         n = 1;
-        printf("%i  ", n);
+        //printf("%i  ", n);
         for (int i = 0; i < n; i++) {
             meshObject->quadricSimplify();
         }
