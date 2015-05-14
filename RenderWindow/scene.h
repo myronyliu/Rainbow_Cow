@@ -240,7 +240,6 @@ public:
         _t = 1;
         _nCollapses = 0;
         _allowFins = false;
-        _saveCollapses = true;
         _drawVertexNormals = true;
         _aggressiveSimplification = true;
         _approximationMethod = QUADRIC_APPROXIMATION_METHOD;
@@ -279,21 +278,6 @@ public:
     int complexity(){ return _adjacency.size(); }
     void collapseRandomEdge(const int& approximationMethod = MIDPOINT_APPROXIMATION_METHOD);
 
-    std::string currentMeshString();
-    void writeCollapse(
-        const int& v0,
-        const glm::vec3& xyz0,
-        const glm::vec3& n0,
-        const std::set<int>& fSet0,
-        const int& v1,
-        const glm::vec3& xyz1,
-        const glm::vec3& n1,
-        const std::set<int>& fSet1,
-        const int& v,
-        const glm::vec3& xyz,
-        const glm::vec3& n,
-        const std::set<int>& fSet,
-        const std::set<int>& fSetR);
     void makeProgressiveMeshFile();
 
     void allowFins() { _allowFins = true; }
@@ -341,7 +325,6 @@ protected:
     bool _allowFins;
     bool _metricsReady;
     bool _quadricsReady;
-    bool _saveCollapses;
     bool _faceNormalsReady; // hm maybe I should also make a vector<bool> _faceNormalReady
     bool _drawVertexNormals;
     bool _vertexNormalsReady;
@@ -352,7 +335,7 @@ protected:
 
     std::string _iFileName;
     std::string _oFileName;
-    std::string _collapseString;
+    //std::string _collapseString;
 
     std::map<int, std::set<int>> _adjacency;
     GLuint _vertexArrayID;
@@ -373,6 +356,25 @@ protected:
     std::vector<glm::mat4> _quadrics;
     std::map<Edge, float, EdgeComp> _pairMetric; // Quadric error metric for pairs of vertices that are within _t distance of one another
     std::map<float, std::set<Edge>> _metricPairs;
+
+    ////////////////////////////////////////
+    ///// STUFF FOR PROGRESSIVE MESHES /////
+    ////////////////////////////////////////
+    std::vector<int> _v0;
+    std::vector<int> _v1;
+    //std::vector<int> _v;
+    std::vector<glm::vec3> _n0;
+    std::vector<glm::vec3> _n1;
+    std::vector<glm::vec3> _n;
+    std::vector<glm::vec3> _xyz0; // coordinates of v0 before collapse
+    std::vector<glm::vec3> _xyz1; // coordinates of v1 before collapse
+    std::vector<glm::vec3> _xyz;  // coordinates of merge(v0,v1) after collapse (REPLACES xyz0)
+    std::vector<std::vector<int>> _fVec1;
+    std::vector<std::vector<int>> _fVec;
+    std::vector<std::vector<int>> _fVecR; // shared faces to remove
+    std::vector<std::vector<std::vector<int>>> _fVecRijk;
+
+    float _complexity; // the current number of vertices
 };
 
 class ProgressiveMeshObject : public MeshObject {
@@ -390,25 +392,6 @@ public:
     void makeProgressiveMeshFile() { return; }
     float complexity() { return _complexity; }
 protected:
-    std::vector<int> _v0;
-    std::vector<int> _v1;
-    std::vector<int> _v;
-    std::vector<glm::vec3> _n0;
-    std::vector<glm::vec3> _n1;
-    std::vector<glm::vec3> _n;
-    std::vector<glm::vec3> _xyz0; // coordinates of v0 before collapse
-    std::vector<glm::vec3> _xyz1; // coordinates of v1 before collapse
-    std::vector<glm::vec3> _xyz;  // coordinates of merge(v0,v1) after collapse (REPLACES xyz0)
-    std::vector<std::vector<int>> _fVec0;
-    std::vector<std::vector<int>> _fVec1;
-    std::vector<std::vector<int>> _fVec;
-    std::vector<std::vector<int>> _fVecR; // shared faces to remove
-    std::vector<std::vector<int>> _fVecRx;
-    std::vector<std::vector<int>> _fVecRy;
-    std::vector<std::vector<int>> _fVecRz; // the corner vertex index NOT EQUAL to v0 or v1
-
-
-    float _complexity; // the current number of vertices
 };
 
 

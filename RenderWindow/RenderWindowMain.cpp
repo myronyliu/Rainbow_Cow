@@ -22,9 +22,10 @@ int main(int argc, char* argv[])
 
     Scene::Shader* rainbowShader = new Scene::Shader("shaders/rainbow_vert.glsl", "shaders/rainbow_frag.glsl");
 
-    std::string file = "ico";
+    std::string file = "teapot";
     //Scene::MeshObject * meshObject = new Scene::MeshObject("models/" + file + ".off");
     Scene::ProgressiveMeshObject * meshObject = new Scene::ProgressiveMeshObject("models/" + file + ".offpm");
+    meshObject->allowFins();
     world.assignShader(meshObject, rainbowShader);
     meshObject->readGeom();
     float xMin = meshObject->xMin();
