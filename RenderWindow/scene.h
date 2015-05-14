@@ -260,7 +260,7 @@ public:
     int nVisibleVertices() { return _adjacency.size(); }
     int nVisibleFaces();
     std::vector<int> visibleFaces();
-    int nVertices() { return _vertexPositions.size(); }
+    int nVertices() { return _vertexPositions.size() / 2; }
     int nFaces() { return _faces.size(); }
     int approximationMethod() { return _approximationMethod; }
     void setApproximationMethod(const int& approximationMethod) { _approximationMethod = approximationMethod; }
@@ -313,8 +313,6 @@ public:
 
     void reComputeVertexNormals();
     void reComputeFaceNormals();
-    void removeRedundancies();
-    void updateIndexBuffer();
     void readGeom();
 
     float xMin() { return _xMin; }
@@ -360,7 +358,7 @@ protected:
     GLuint _vertexArrayID;
 
     std::vector<glm::vec3> _vertexPositions; // these are for feeding into the vertex, normal, index buffers
-    std::vector<glm::vec3> _vertexNormals;
+    std::vector<glm::vec3> _vertexNormals; // we duplicate it for drawing the normals
     std::vector<glm::vec4> _vertexColors;
     std::vector<Face> _faces;
     std::vector<glm::vec3> _faceNormals;
@@ -368,10 +366,8 @@ protected:
     std::vector<int> _triangleIndices;
     std::vector<int> _lineIndices;
 
-    glm::vec3 _scale;
-
-    std::vector<glm::vec3> _vertexNormalTailHeads;
-    std::vector<glm::vec3> _vertexNormalTailHeadNormals;
+    //std::vector<glm::vec3> _vertexNormalTailHeads;
+    //std::vector<glm::vec3> _vertexNormalTailHeadNormals;
 
     float _t; // the distance threshold for quadric simplification
     std::vector<glm::mat4> _quadrics;

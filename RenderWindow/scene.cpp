@@ -448,16 +448,15 @@ void MeshObject::readGeom(){
     int printStepV = ceil((float)nV / 100.0);
     int printStepF = ceil((float)nF / 100.0);
     _quadrics.resize(nV);
-    _vertexPositions.reserve(nV);
-    _vertexNormals.reserve(nV);
-    _vertexColors.reserve(nV);
-    _vertexNormalTailHeads.reserve(2*nV);
-    _vertexNormalTailHeadNormals.reserve(2 * nV);
-    _faces.reserve(nF);
-    _triangleIndices.reserve(3 * nF);
-    _lineIndices.reserve(2 * nF);
-    _faceNormals.reserve(nF);
-    _faceAreas.reserve(nF);
+    _vertexPositions.resize(2 * nV, vec3(0, 0, 0));
+    _vertexNormals.resize(2 * nV, vec3(0, 0, 0));
+    _vertexColors.resize(nV, vec4(0, 0, 0, 0));
+    //_vertexNormalTailHeadNormals.reserve(2 * nV);
+    _faces.resize(nF, { 0, 0, 0 });
+    _triangleIndices.resize(3 * nF, 0);
+    _lineIndices.resize(2 * nF, 0);
+    _faceNormals.resize(nF,vec3(0,0,0));
+    _faceAreas.resize(nF, 0);
     _xMin = 0;
     _xMax = 0;
     _yMin = 0;
@@ -480,15 +479,10 @@ void MeshObject::readGeom(){
             if (y > _yMax) _yMax = y;
             if (z > _zMax) _zMax = z;
         }
-        _lineIndices.push_back(2 * i + 0);
-        _lineIndices.push_back(2 * i + 1);
-        _vertexNormalTailHeads.push_back(vec3(0, 0, 1));
-        _vertexNormalTailHeads.push_back(vec3(0, 0, 1));
-        _vertexNormalTailHeadNormals.push_back(vec3(0, 0, 0));
-        _vertexNormalTailHeadNormals.push_back(vec3(0, 0, 0));
-        _vertexPositions.push_back(vec3(x, y, z));
-        _vertexColors.push_back(vec4(1, 1, 1, 1));
-        _vertexNormals.push_back(vec3(0, 0, 1)); // default normals to z-hat until computed
+        _lineIndices[2 * i + 0] = i;
+        _lineIndices[2 * i + 1] = nV + i;
+        _vertexPositions[i] = vec3(x, y, z);
+        _vertexColors[i] = vec4(1, 1, 1, 1);
     }
     std::cout << std::endl;
     float dAvg = 0; // rough estimate for average edge length. Not actually correct, but it suffices for picking appropriate _t
@@ -499,14 +493,13 @@ void MeshObject::readGeom(){
         int v0 = pl[1];
         int v1 = pl[2];
         int v2 = pl[3];
-        Face f = { v0, v1, v2 };
-        _faces.push_back(f);
-        _triangleIndices.push_back(v0); _triangleIndices.push_back(v1); _triangleIndices.push_back(v2);
-        _faceNormals.push_back(vec3(0, 0, 1));
-        _faceAreas.push_back(0);
-        _adjacency[v0].insert(_faces.size() - 1);
-        _adjacency[v1].insert(_faces.size() - 1);
-        _adjacency[v2].insert(_faces.size() - 1);
+        _faces[i] = { v0, v1, v2 };
+        _triangleIndices[3 * i + 0] = v0;
+        _triangleIndices[3 * i + 1] = v1;
+        _triangleIndices[3 * i + 2] = v2;
+        _adjacency[v0].insert(i);
+        _adjacency[v1].insert(i);
+        _adjacency[v2].insert(i);
         float d = glm::distance(_vertexPositions[v0], _vertexPositions[v1]);
         d += glm::distance(_vertexPositions[v1], _vertexPositions[v2]);
         d += glm::distance(_vertexPositions[v2], _vertexPositions[v0]);
@@ -636,28 +629,11 @@ void MeshObject::collapse(const int& v0, const int& v1, const int& approximation
     // change all associations of faces adjacent to v1 from "v1 to v0"
     fSet1 = _adjacency[v1]; // this is important. we don't want to change _faces[fIntersect], since we need it later for writing to ProgMesh file
     for (set<int>::iterator f = fSet1.begin(); f != fSet1.end(); f++) {
-        int newCorner = 0;
         for (int corner = 0; corner < 3; corner++) {
-            /*if (_faces[*f][corner] == v0) { // if face already has v0 as a corner then it becomes degenerate, and we remove it
-                printf("wait... this check should be redundant, since we already removed the shared faces\n");
-                _lineIndices[2 * _faces[*f][corner] + 0] = 0;
-                _lineIndices[2 * _faces[*f][corner] + 1] = 0;
-                for (int i = 0; i < 3; i++){
-                    _triangleIndices[3 * (*f) + 0] = 0;
-                    _triangleIndices[3 * (*f) + 1] = 0;
-                    _triangleIndices[3 * (*f) + 2] = 0;
-                    set<int>::iterator it = _adjacency[_faces[*f][i]].find(*f);
-                    _adjacency[_faces[*f][i]].erase(it);
-                    if (_adjacency[_faces[*f][i]].size() == 0) _adjacency.erase(_faces[*f][i]);
-                    break;
-                }
-            }*/
-            if (_faces[*f][corner] == v1) newCorner = corner;
-            if (corner == 2) { // otherwise if we get to the end of the loop, replacing v1 with v0 in the face is no problem, so we proceed as such
-                _faces[*f][newCorner] = v0;
-                _triangleIndices[3 * (*f) + newCorner] = v0;
-                _adjacency[v0].insert(*f); // DON'T FORGET TO ADD V1's NEIGHBORS TO V0's ADJACENCY
-            }
+            if (_faces[*f][corner] != v1) continue;
+            _faces[*f][corner] = v0;
+            _triangleIndices[3 * (*f) + corner] = v0;
+            _adjacency[v0].insert(*f); // DON'T FORGET TO ADD V1's NEIGHBORS TO V0's ADJACENCY
         }
     }
     _adjacency.erase(v1); // Remove v1 from the _adjacency list
@@ -682,10 +658,8 @@ void MeshObject::collapse(const int& v0, const int& v1, const int& approximation
         n = normalize(n / (float)_adjacency[*v].size());
         nScale = sqrt(nScale / (float)_adjacency[*v].size()) / 8;
         _vertexNormals[*v] = n;
-        _vertexNormalTailHeads[2 * (*v) + 0] = _vertexPositions[*v];
-        _vertexNormalTailHeads[2 * (*v) + 1] = _vertexPositions[*v] + nScale*n;
-        _vertexNormalTailHeadNormals[2 * (*v) + 0] = _vertexNormals[*v];
-        _vertexNormalTailHeadNormals[2 * (*v) + 1] = _vertexNormals[*v];
+        _vertexNormals[*v + nVertices()] = n;
+        _vertexPositions[*v + nVertices()] = _vertexPositions[*v] + nScale*n;
     }
     // Remove from _metrics all the vertex pairs that contain v1
     for (map<int, set<int>>::iterator adj = _adjacency.begin(); adj != _adjacency.end(); adj++) {
@@ -859,12 +833,13 @@ void MeshObject::reComputeFaceNormals() {
         vec3 n = cross(e01, e02);
         _faceAreas[f] = n.length();
         _faceNormals[f] = normalize(n);
+        //printf("%f %f %f\n", _faceNormals[f][0], _faceNormals[f][1], _faceNormals[f][2]);
     }
     _faceNormalsReady = true;
 }
 void MeshObject::reComputeVertexNormals() {
     if (_faceNormalsReady == false) reComputeFaceNormals();
-    for (map<int, set<int>>::const_iterator i = _adjacency.begin(); i != _adjacency.end(); i++){
+    for (map<int, set<int>>::const_iterator i = _adjacency.begin(); i != _adjacency.end(); i++) {
         vec3 n(0, 0, 0);
         float nScale = 0;
         set<int> adjFaces = i->second; // adjacent faces
@@ -875,10 +850,8 @@ void MeshObject::reComputeVertexNormals() {
         n = normalize(n / (float)adjFaces.size());
         nScale = sqrt(nScale / (float)adjFaces.size()) / 8;
         _vertexNormals[i->first] = n;
-        _vertexNormalTailHeads[2 * (i->first) + 0] = _vertexPositions[i->first];
-        _vertexNormalTailHeads[2 * (i->first) + 1] = _vertexPositions[i->first] + nScale*n;
-        _vertexNormalTailHeadNormals[2 * (i->first) + 0] = _vertexNormals[i->first];
-        _vertexNormalTailHeadNormals[2 * (i->first) + 1] = _vertexNormals[i->first];
+        _vertexNormals[i->first + nVertices()] = n;
+        _vertexPositions[i->first + nVertices()] = _vertexPositions[i->first] + nScale*n;
     }
 }
 vec3 MeshObject::mergedCoordinates(const int& v0, const int& v1, const int& approximationMethod) {
@@ -1070,87 +1043,28 @@ void MeshObject::quadricSimplify() {
     }
 }
 
-void MeshObject::updateIndexBuffer() { // NOT SAFE WITH REGARDS TO EVERYTHING ELSE
-    vector<int> visFaceIndices = visibleFaces();
-    _triangleIndices.clear();
-    for (int i = 0; i < visFaceIndices.size(); i++){
-        int fIndex = visFaceIndices[i];
-        for (int j = 0; j < 3; j++){
-            _triangleIndices.push_back(_faces[fIndex][j]);
-        }
-    }
-}
-
-void MeshObject::removeRedundancies() {
-    MeshObject old = *this;
-    _faces.clear();
-    _triangleIndices.clear();
-    _pairMetric.clear();
-    _quadrics.clear();
-    _vertexPositions.clear();
-    _faceNormals.clear();
-    _vertexColors.clear();
-    _vertexNormals.clear();
-    map<int, int> vOld_vNew;
-    set<int> faceSet;
-    int vCounter = 0;
-    for (map<int, set<int>>::const_iterator vfs = _adjacency.begin(); vfs != _adjacency.end(); vfs++){
-        int v = vfs->first;
-        set<int> fs = vfs->second; // adjacent faces
-        vOld_vNew.emplace(v, vCounter);
-        vCounter++;
-        _vertexPositions.push_back(old._vertexPositions[v]);
-        _quadrics.push_back(old._quadrics[v]);
-        _vertexColors.push_back(old._vertexColors[v]);
-        _vertexNormals.push_back(old._vertexNormals[v]);
-        for (set<int>::iterator f = fs.begin(); f != fs.end(); f++) faceSet.insert(*f);
-    }
-    for (set<int>::iterator f = faceSet.begin(); f != faceSet.end(); f++){
-        int c0 = vOld_vNew[old._faces[*f][0]];
-        int c1 = vOld_vNew[old._faces[*f][1]];
-        int c2 = vOld_vNew[old._faces[*f][2]];
-        _triangleIndices.push_back(c0);
-        _triangleIndices.push_back(c1);
-        _triangleIndices.push_back(c2);
-        _faces.push_back({ c0, c1, c2 });
-        _faceNormals.push_back(old._faceNormals[*f]);
-    }
-    for (map<Edge, float>::iterator m = old._pairMetric.begin(); m != old._pairMetric.end(); m++) {
-        int v0 = vOld_vNew[m->first.first];
-        int v1 = vOld_vNew[m->first.second];
-        _pairMetric.emplace(Edge(v0, v1), m->second);
-    }
-}
-
 void MeshObject::doDraw()
 {
     if (!_geomReady) readGeom();
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_NORMAL_ARRAY);
-    //glEnableClientState(GL_COLOR_ARRAY);
     
     glVertexPointer(3, GL_FLOAT, 0, &_vertexPositions[0]);
     glNormalPointer(GL_FLOAT, 0, &_vertexNormals[0]);
-    //glColorPointer(4, GL_FLOAT, 0, &_vertexColors[0]);
 
     GLuint IBO;
     glGenBuffers(1, &IBO);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(int)*_triangleIndices.size(), &_triangleIndices[0], GL_STATIC_DRAW);
 
-    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     glDrawElements(GL_TRIANGLES, _triangleIndices.size(), GL_UNSIGNED_INT, 0);
     
     if (_drawVertexNormals == false) return;
-
+    
     /////////////////////////////
     ///// ALSO DRAW NORMALS /////
     /////////////////////////////
-
-    glVertexPointer(3, GL_FLOAT, 0, &_vertexNormalTailHeads[0]);
-    glNormalPointer(GL_FLOAT, 0, &_vertexNormalTailHeadNormals[0]);
-    //glColorPointer(4, GL_FLOAT, 0, &_vertexNormalTailHeadColors[0]);
-    
     glGenBuffers(1, &IBO);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(int)*_lineIndices.size(), &_lineIndices[0], GL_STATIC_DRAW);
@@ -1202,13 +1116,10 @@ void ProgressiveMeshObject::readGeom() {
     _zMin = pl[4];
     _zMax = pl[5];
     _complexity = nV;
-    _vertexPositions.resize(nV_full,vec3(0,0,0));
-    _vertexNormals.resize(nV_full);
-    _vertexColors.resize(nV_full,vec4(1,1,1,1));
-    _faces.resize(nF_full, {0,0,0});
+    _vertexPositions.resize(nV_full, vec3(0, 0, 0));
+    _vertexNormals.resize(nV_full, vec3(0, 0, 0));
+    _faces.resize(nF_full, { 0, 0, 0 });
     _triangleIndices.resize(3 * nF_full, 0);
-    _faceNormals.resize(nF_full);
-    _faceAreas.resize(nF_full);
     float xMin = 0;
     float xMax = 0;
     float yMin = 0;
@@ -1238,7 +1149,6 @@ void ProgressiveMeshObject::readGeom() {
         }
         _vertexPositions[v] = vec3(x, y, z);
         _vertexNormals[v] = vec3(nx, ny, nz);
-        _adjacency.emplace(v, set<int>());
     }
     std::cout << std::endl;
     for (int i = 0; i < nF; i++){
@@ -1254,9 +1164,6 @@ void ProgressiveMeshObject::readGeom() {
         _triangleIndices[3 * f + 0] = v0;
         _triangleIndices[3 * f + 1] = v1;
         _triangleIndices[3 * f + 2] = v2;
-        _adjacency[v0].insert(f);
-        _adjacency[v1].insert(f);
-        _adjacency[v2].insert(f);
     }
     _v0.reserve(nC);
     _v1.reserve(nC);
@@ -1306,7 +1213,6 @@ void ProgressiveMeshObject::readGeom() {
         _fVec.push_back(f);
         getline(modelfile, line); /////
         lineNumber++;
-        //if (line == "") printf("line %i is empty\n", lineNumber);
         pl = parseLine(line, ' ');
         f.clear();
         vector<int> f_x, f_y, f_z;
@@ -1320,14 +1226,9 @@ void ProgressiveMeshObject::readGeom() {
         _fVecRx.push_back(f_x);
         _fVecRy.push_back(f_y);
         _fVecRz.push_back(f_z);
-        //if (_v0[i] == 51 && _v1[i] == 509) cout << endl << "found 51,509 near " << lineNumber << endl;
     }
     getline(modelfile, line);
-    cout << "last line" << endl;
-    cout << line << endl;
-    //printf("  %i %i\n", _v0[_v0.size()-1], _v1[_v1.size()-1]);
     printf("\n------------------------------------------------------------\n");
-    _scale = vec3(xMax - xMin, yMax - yMin, zMax - zMin);
     _geomReady = true;
 }
 

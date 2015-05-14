@@ -22,9 +22,9 @@ int main(int argc, char* argv[])
 
     Scene::Shader* rainbowShader = new Scene::Shader("shaders/rainbow_vert.glsl", "shaders/rainbow_frag.glsl");
 
-    std::string file = "sphere";
-    Scene::MeshObject * meshObject = new Scene::MeshObject("models/" + file + ".off");
-    //Scene::ProgressiveMeshObject * meshObject = new Scene::ProgressiveMeshObject("models/" + file + ".offpm");
+    std::string file = "ico";
+    //Scene::MeshObject * meshObject = new Scene::MeshObject("models/" + file + ".off");
+    Scene::ProgressiveMeshObject * meshObject = new Scene::ProgressiveMeshObject("models/" + file + ".offpm");
     world.assignShader(meshObject, rainbowShader);
     meshObject->allowFins();
     meshObject->readGeom();
