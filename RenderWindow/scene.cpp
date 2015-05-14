@@ -519,10 +519,12 @@ void MeshObject::readGeom(){
 
 Edge MeshObject::randomEdge() {
     if (_adjacency.size() == 0) return Edge({ -1, -1 });
-    if (_adjacency.size() < 3) {
-        printf("WARNING: No more triangles left to collapse,\n");
-        return Edge({ _adjacency.begin()->first, _adjacency.begin()->first });
-    }
+    if (_adjacency.size() == 1) return Edge({ -1, -1 });
+    if (_adjacency.size() == 2) return Edge(_adjacency.begin()->first, _adjacency.rbegin()->first);
+    //if (_adjacency.size() < 2) {
+    //    printf("WARNING: No more pairs left to collapse,\n");
+    //    return Edge({ _adjacency.begin()->first, _adjacency.begin()->first });
+    //}
     int v0, v1;
     while (true) {
         int m = fmin(_adjacency.size() - 1, (float)_adjacency.size()*rand() / RAND_MAX);
@@ -531,7 +533,7 @@ Edge MeshObject::randomEdge() {
         v0 = mIt->first;
         set<int> fSet0 = mIt->second;
         if (fSet0.size() == 0) {
-            printf("Vertex %i at (%f, %f, %f) has no adjacent faces. Trying again.\n", v0, _vertexPositions[v0][0], _vertexPositions[v0][1], _vertexPositions[v0][2]);
+            //printf("Vertex %i at (%f, %f, %f) has no adjacent faces. Trying again.\n", v0, _vertexPositions[v0][0], _vertexPositions[v0][1], _vertexPositions[v0][2]);
             continue;
         }
         int f = fmin(fSet0.size() - 1, (float)fSet0.size()*rand() / RAND_MAX);
@@ -571,13 +573,15 @@ void MeshObject::collapse(const int& v0, const int& v1, const int& approximation
         printf("ERROR: Cannot collapse vertex with itself.\n");
         return;
     }
-    if (_adjacency.size() < 2) {
-        printf("ERROR: There are no more pairs to collapse.\n");
+    if (_adjacency.size() < 3) {
+        printf("WARNING: No more triangles to collapse.\n");
         return;
     }
-    if (_adjacency.size() < 4) {
-        printf("WARNING: Only one triangle remains. Keeping it.\n");
-        return;
+    if (_adjacency.size() < 5) {
+        for (map<int, set<int>>::iterator it = _adjacency.begin(); it != _adjacency.end(); it++) {
+            _lineIndices[2 * it->first + 0] = 0;
+            _lineIndices[2 * it->first + 1] = 0;
+        }
     }
     int collapseCount = 1;
     int adjInSize = _adjacency.size();
@@ -622,7 +626,6 @@ void MeshObject::collapse(const int& v0, const int& v1, const int& approximation
         for (int corner = 0; corner < 3; corner++) { // For each vertex that is connected to the shared face _faces[*f][v] ...
             set<int>::iterator it = _adjacency[_faces[*f][corner]].find(*f); // Remove the shared face *f from that vertex's list of adjacent faces
             if (it != _adjacency[_faces[*f][corner]].end()) _adjacency[_faces[*f][corner]].erase(it);
-            if (_adjacency[_faces[*f][corner]].size() == 0) _adjacency.erase(_faces[*f][corner]);
             if (_faces[*f][corner] != v0 &&_faces[*f][corner] != v1) vFinVec.push_back(_faces[*f][corner]);
         }
     }
@@ -999,7 +1002,10 @@ float MeshObject::avgEdgeLength() { // approximate cause i don't feel like deali
 }
 
 void MeshObject::quadricSimplify() {
-    if (_adjacency.size() < 2) printf("No geometry left to collapse.\n");
+    if (_adjacency.size() < 2) {
+        printf("No geometry left to collapse.\n");
+        return;
+    }
     else {
         float minCost = _metricPairs.begin()->first;
         if (minCost < INFINITY) {
@@ -1056,9 +1062,8 @@ void MeshObject::doDraw()
     glGenBuffers(1, &IBO);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(int)*_triangleIndices.size(), &_triangleIndices[0], GL_STATIC_DRAW);
-
-    //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     glDrawElements(GL_TRIANGLES, _triangleIndices.size(), GL_UNSIGNED_INT, 0);
+    //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     
     if (_drawVertexNormals == false) return;
     
@@ -1266,10 +1271,12 @@ void ProgressiveMeshObject::collapseTo(const float& newComplexity) {
     }
     else if (_complexity < newComplexity) { // SPLIT
 
-        for (int i = oldCollapseIndex-1; i > newCollapseIndex-1 ; i--) {
+        for (int i = oldCollapseIndex - 1; i > newCollapseIndex - 1; i--) {
             printf("SPLITTING %i (on collapse %i) to get %i\n", _v0[i], i, _v1[i]);
-            _vertexPositions[_v0[i]] = _xyz0[i];
-            _vertexPositions[_v1[i]] = _xyz1[i];
+            if (i > newCollapseIndex) {
+                _vertexPositions[_v0[i]] = _xyz0[i];
+                _vertexPositions[_v1[i]] = _xyz1[i];
+            }
             for (int j = 0; j < _fVecR[i].size(); j++) {
                 int f = _fVecR[i][j];
                 _faces[f][0] = _fVecRx[i][j];
@@ -1292,11 +1299,11 @@ void ProgressiveMeshObject::collapseTo(const float& newComplexity) {
         }
         //printf("interpolating %i and %i...\n",_v0[newCollapseIndex], _v1[newCollapseIndex]);
     }
-    if (alpha>0) { // small alpha means we are closer to the full split (or farther from the full collapse). alpha=0 is the fringe case
-        _vertexPositions[_v0[newCollapseIndex]] = (1.0f - alpha)*_xyz0[newCollapseIndex] + alpha*_xyz[newCollapseIndex];
-        _vertexPositions[_v1[newCollapseIndex]] = (1.0f - alpha)*_xyz1[newCollapseIndex] + alpha*_xyz[newCollapseIndex];
-        _vertexNormals[_v0[newCollapseIndex]] = (1.0f - alpha)*_n0[newCollapseIndex] + alpha*_n[newCollapseIndex];
-        _vertexNormals[_v1[newCollapseIndex]] = (1.0f - alpha)*_n1[newCollapseIndex] + alpha*_n[newCollapseIndex];
-    }
-    _complexity = fmin(fmax(_vertexPositions.size() - _v0.size(), newComplexity), _vertexPositions.size());
+    _complexity = fmin(fmax(_vertexPositions.size() - _v0.size(), newComplexity), _vertexPositions.size()); // update the current _complexity
+    // GEOMORPH: small alpha means we are close to the full split
+    if (newCollapseIndex >= _v0.size()) return;
+    _vertexPositions[_v0[newCollapseIndex]] = (1.0f - alpha)*_xyz0[newCollapseIndex] + alpha*_xyz[newCollapseIndex];
+    _vertexPositions[_v1[newCollapseIndex]] = (1.0f - alpha)*_xyz1[newCollapseIndex] + alpha*_xyz[newCollapseIndex];
+    _vertexNormals[_v0[newCollapseIndex]] = (1.0f - alpha)*_n0[newCollapseIndex] + alpha*_n[newCollapseIndex];
+    _vertexNormals[_v1[newCollapseIndex]] = (1.0f - alpha)*_n1[newCollapseIndex] + alpha*_n[newCollapseIndex];
 }

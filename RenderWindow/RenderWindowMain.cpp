@@ -22,11 +22,10 @@ int main(int argc, char* argv[])
 
     Scene::Shader* rainbowShader = new Scene::Shader("shaders/rainbow_vert.glsl", "shaders/rainbow_frag.glsl");
 
-    std::string file = "teapot";
-    Scene::MeshObject * meshObject = new Scene::MeshObject("models/" + file + ".off");
-    //Scene::ProgressiveMeshObject * meshObject = new Scene::ProgressiveMeshObject("models/" + file + ".offpm");
+    std::string file = "ico";
+    //Scene::MeshObject * meshObject = new Scene::MeshObject("models/" + file + ".off");
+    Scene::ProgressiveMeshObject * meshObject = new Scene::ProgressiveMeshObject("models/" + file + ".offpm");
     world.assignShader(meshObject, rainbowShader);
-    meshObject->allowFins();
     meshObject->readGeom();
     float xMin = meshObject->xMin();
     float xMax = meshObject->xMax();
@@ -58,9 +57,9 @@ int main(int argc, char* argv[])
     Scene::Arrow * xAxis = new Scene::Arrow(glm::vec3(xAxisMin, yAxisMin, zAxisMin), glm::vec3(xAxisMax, yAxisMin, zAxisMin), glm::vec4(1, 0, 0, 1));
     Scene::Arrow * yAxis = new Scene::Arrow(glm::vec3(xAxisMin, yAxisMin, zAxisMin), glm::vec3(xAxisMin, yAxisMax, zAxisMin), glm::vec4(0, 1, 0, 1));
     Scene::Arrow * zAxis = new Scene::Arrow(glm::vec3(xAxisMin, yAxisMin, zAxisMin), glm::vec3(xAxisMin, yAxisMin, zAxisMax), glm::vec4(0, 0, 1, 1));
-    //world.addObject(xAxis);
-    //world.addObject(yAxis);
-    //world.addObject(zAxis);
+    world.addObject(xAxis);
+    world.addObject(yAxis);
+    world.addObject(zAxis);
 
     float maxSpan = std::max({ xSpan, ySpan, zSpan });
     float minSpan = std::min({ xSpan, ySpan, zSpan });
