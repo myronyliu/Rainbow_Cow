@@ -361,6 +361,23 @@ std::vector<float> parseLine(const std::string& line, const char& c) {
     }
     return nums;
 }
+bool intersect_union(const set<int>& fSet0, const set<int>& fSet1, set<int>& fIntersect, set<int>& fUnion){
+    fIntersect.clear();
+    fUnion = fSet1;
+    for (set<int>::iterator f0 = fSet0.begin(); f0 != fSet0.end(); f0++){
+        bool uniqueFlag = true;
+        for (set<int>::iterator f1 = fSet1.begin(); f1 != fSet1.end(); f1++){
+            if (*f0 == *f1) {
+                fIntersect.insert(*f1);
+                uniqueFlag = false;
+                break;
+            }
+        }
+        if (uniqueFlag == true) fUnion.insert(*f0);
+    }
+    if (fIntersect.size() == 0) return false;
+    else return true;
+}
 void MeshObject::makeProgressiveMeshFile() {
     ::ofstream oFile;
     oFile.open(_oFileName);
@@ -382,7 +399,7 @@ void MeshObject::makeProgressiveMeshFile() {
     for (int i = 0; i < visFaceIndices.size(); i++){
         int f = visFaceIndices[i];
         vector<int> v = _faces[f];
-        oFile << f << ' ' << v[0] << ' ' << v[1] << ' ' << v[2] + '\n';
+        oFile << f << ' ' << v[0] << ' ' << v[1] << ' ' << v[2] << '\n';
     }
     // write collapses to string
     for (int i = 0; i < _v0.size(); i++) {
@@ -411,7 +428,24 @@ void MeshObject::makeProgressiveMeshFile() {
     oFile.close();
 }
 
-void MeshObject::readGeom(){
+
+void MeshObject::readGeom() {
+    string file = _iFileName;
+    string line;
+    ifstream modelfile(_iFileName);
+    if (!modelfile.is_open()) exit;
+    getline(modelfile, line);
+    if (line == "OFF") {
+        _drawVertexNormals = true;
+        readGeomOFF();
+    }
+    else if (line == "OFFPM") {
+        _drawVertexNormals = false;
+        readGeomOFFPM();
+    }
+    else printf("ERROR: Mesh File Type Unrecognized\n");
+}
+void MeshObject::readGeomOFF(){
     printf("------------------------- READING .OFF FILE -------------------------\n");
     string file = _iFileName;
     string line;
@@ -425,11 +459,11 @@ void MeshObject::readGeom(){
     int nF = pl[1];
     int printStepV = ceil((float)nV / 100.0);
     int printStepF = ceil((float)nF / 100.0);
+    _complexity = nV;
     _quadrics.resize(nV);
     _vertexPositions.resize(2 * nV, vec3(0, 0, 0));
     _vertexNormals.resize(2 * nV, vec3(0, 0, 0));
     _vertexColors.resize(nV, vec4(0, 0, 0, 0));
-    //_vertexNormalTailHeadNormals.reserve(2 * nV);
     _faces.resize(nF, { 0, 0, 0 });
     _triangleIndices.resize(3 * nF, 0);
     _lineIndices.resize(2 * nF, 0);
@@ -490,11 +524,144 @@ void MeshObject::readGeom(){
     printf("            Vertex Quadrics\n");
     reComputeQuadrics();
     printf("            Quadric Error Metrics...\n");
-    setT(2 * dAvg);
+    setT(0.0 * dAvg);
     printf("------------------------------------------------------------\n");
     _geomReady = true;
 }
-
+void MeshObject::readGeomOFFPM() {
+    int lineNumber = 0;
+    printf("------------------------- READING .OFFPM FILE -------------------------\n");
+    string file = _iFileName;
+    string line;
+    ifstream modelfile(_iFileName);
+    if (!modelfile.is_open()) exit;
+    getline(modelfile, line);
+    lineNumber++;
+    if (line != "OFFPM") exit;
+    getline(modelfile, line);
+    lineNumber++;
+    vector<float> pl = parseLine(line, ' ');
+    int nV_full = pl[0];
+    int nF_full = pl[1];
+    getline(modelfile, line);
+    lineNumber++;
+    pl = parseLine(line, ' ');
+    int nV = pl[0];
+    int nF = pl[1];
+    int nC = pl[2];
+    int printStepV = ceil((float)nV / 100);
+    int printStepF = ceil((float)nF / 100);
+    int printStepC = ceil((float)nC / 100);
+    getline(modelfile, line);
+    pl = parseLine(line, ' ');
+    _xMin = pl[0];
+    _xMax = pl[1];
+    _yMin = pl[2];
+    _yMax = pl[3];
+    _zMin = pl[4];
+    _zMax = pl[5];
+    _complexity = nV;
+    _vertexPositions.resize(nV_full, vec3(0, 0, 0));
+    _vertexNormals.resize(nV_full, vec3(0, 0, 0));
+    _faces.resize(nF_full, { 0, 0, 0 });
+    _triangleIndices.resize(3 * nF_full, 0);
+    float xMin = 0;
+    float xMax = 0;
+    float yMin = 0;
+    float yMax = 0;
+    float zMin = 0;
+    float zMax = 0;
+    for (int i = 0; i < nV; i++){
+        if (i%printStepV == 0 || i == nV - 1) printf("We're on vertex %i/%i\r", i + 1, nV);
+        getline(modelfile, line);
+        lineNumber++;
+        pl = parseLine(line, ' ');
+        int v = pl[0];
+        float x = pl[1];
+        float y = pl[2];
+        float z = pl[3];
+        float nx = pl[4];
+        float ny = pl[5];
+        float nz = pl[6];
+        if (i == 0) { xMin = x; xMax = x; yMin = y; yMax = y; zMin = z; zMax = z; }
+        else {
+            if (x < xMin) xMin = x;
+            if (y < yMin) yMin = y;
+            if (z < zMin) zMin = z;
+            if (x > xMax) xMax = x;
+            if (y > yMax) yMax = y;
+            if (z > zMax) zMax = z;
+        }
+        _vertexPositions[v] = vec3(x, y, z);
+        _vertexNormals[v] = vec3(nx, ny, nz);
+    }
+    std::cout << std::endl;
+    for (int i = 0; i < nF; i++){
+        if (i%printStepF == 0 || i == nF - 1) printf("We're on face %i/%i\r", i + 1, nF);
+        getline(modelfile, line);
+        lineNumber++;
+        pl = parseLine(line, ' ');
+        int f = pl[0];
+        int v0 = pl[1];
+        int v1 = pl[2];
+        int v2 = pl[3];
+        _faces[f] = { v0, v1, v2 };
+        _triangleIndices[3 * f + 0] = v0;
+        _triangleIndices[3 * f + 1] = v1;
+        _triangleIndices[3 * f + 2] = v2;
+    }
+    _v0.reserve(nC);
+    _v1.reserve(nC);
+    _n0.reserve(nC);
+    _n1.reserve(nC);
+    _n.reserve(nC);
+    _xyz0.reserve(nC);
+    _xyz1.reserve(nC);
+    _xyz.reserve(nC);
+    _fVec.reserve(nC);
+    _fVec1.reserve(nC);
+    _fVecR.reserve(nC);
+    _fVecRijk.reserve(nC);
+    vector<int> f;
+    cout << endl;
+    for (int i = 0; i < nC; i++){
+        if (i%printStepC == 0 || i == nC - 1) printf("We're on collapse %i/%i\r", i + 1, nC);
+        getline(modelfile, line); /////
+        lineNumber++;
+        pl = parseLine(line, ' ');
+        _v0.push_back(pl[0]);
+        _xyz0.push_back(vec3(pl[1], pl[2], pl[3]));
+        _n0.push_back(vec3(pl[4], pl[5], pl[6]));
+        _xyz.push_back(vec3(pl[7], pl[8], pl[9]));
+        _n.push_back(vec3(pl[10], pl[11], pl[12]));
+        f.clear();
+        for (int j = 13; j < pl.size(); j++) f.push_back(pl[j]);
+        _fVec.push_back(f);
+        getline(modelfile, line); /////
+        lineNumber++;
+        pl = parseLine(line, ' ');
+        _v1.push_back(pl[0]);
+        _xyz1.push_back(vec3(pl[1], pl[2], pl[3]));
+        _n1.push_back(vec3(pl[4], pl[5], pl[6]));
+        f.clear();
+        for (int j = 7; j < pl.size(); j++) f.push_back(pl[j]);
+        _fVec1.push_back(f);
+        getline(modelfile, line); /////
+        lineNumber++;
+        pl = parseLine(line, ' ');
+        f.clear();
+        vector<vector<int>> ijk;
+        for (int j = 0; j < pl.size(); j += 4){
+            f.push_back(pl[j + 0]);
+            ijk.push_back({ (int)pl[j + 1], (int)pl[j + 2], (int)pl[j + 3] });
+        }
+        _fVecR.push_back(f);
+        _fVecRijk.push_back(ijk);
+    }
+    getline(modelfile, line);
+    printf("\n------------------------------------------------------------\n");
+    _geomReady = true;
+}
 Edge MeshObject::randomEdge() {
     if (_adjacency.size() == 0) return Edge({ -1, -1 });
     if (_adjacency.size() == 1) return Edge({ -1, -1 });
@@ -528,23 +695,7 @@ Edge MeshObject::randomEdge() {
     }
 }
 
-bool intersect_union(const set<int>& fSet0, const set<int>& fSet1, set<int>& fIntersect, set<int>& fUnion){
-    fIntersect.clear();
-    fUnion = fSet1;
-    for (set<int>::iterator f0 = fSet0.begin(); f0 != fSet0.end(); f0++){
-        bool uniqueFlag = true;
-        for (set<int>::iterator f1 = fSet1.begin(); f1 != fSet1.end(); f1++){
-            if (*f0 == *f1) {
-                fIntersect.insert(*f1);
-                uniqueFlag = false;
-                break;
-            }
-        }
-        if (uniqueFlag == true) fUnion.insert(*f0);
-    }
-    if (fIntersect.size() == 0) return false;
-    else return true;
-}
+
 void MeshObject::collapse(const int& v0, const int& v1) { collapse(v0, v1, _approximationMethod); }
 void MeshObject::collapse(const int& v0, const int& v1, const int& approximationMethod) { // the former vertex is kept. the latter is discarded from adjacency
     if (v0 == v1) {
@@ -662,7 +813,8 @@ void MeshObject::collapse(const int& v0, const int& v1, const int& approximation
         _pairMetric.erase(m);
     }
     // And update Quadrics (BLARGH... this order of operations stuff is driving me mad)
-    updateLocalQuadricsAndMetrics(v0);
+    _quadrics[v0] = _quadrics[v0] + _quadrics[v1];
+    updateMetrics(v0);
     // save the collapse to File (important that this comes BEFORE fin removal, since it is a recursive call)
     _fVec.push_back(vector<int>(_adjacency[v0].begin(), _adjacency[v0].end()));
     // FINALLY! remove the fins if any exist ---------------------------------------------
@@ -773,7 +925,7 @@ bool MeshObject::isEdge(const int& v0, const int& v1) {
     if (adjFaces.size() == 0) return false;
     for (set<int>::iterator f = adjFaces.begin(); f != adjFaces.end(); f++) {
         for (int c = 0; c < 3; c++) {
-            if (_faces[*f][c] == v0) return true;
+            if (_faces[*f][c] == v1) return true;
         }
     }
     return false;
@@ -952,6 +1104,23 @@ void MeshObject::updateLocalQuadricsAndMetrics(const int& v) {
         }
     }
 }
+void MeshObject::updateMetrics(const int& v) {
+    for (map<Edge,float>::iterator pmIt = _pairMetric.begin(); pmIt != _pairMetric.end(); pmIt++) {
+        Edge e = pmIt->first;
+        if (e.first > v) break;
+        if (e.first != v && e.second != v) continue;
+        int u = e.first;
+        if (u == v) u = e.second;
+        float newMet = metric(u, v);
+        float oldMet = pmIt->second;
+        if (oldMet == newMet) continue;
+        map<float, set<Edge>>::iterator it = _metricPairs.find(oldMet);
+        if (it->second.size() > 1) it->second.erase(e);
+        else _metricPairs.erase(it); // the old pair in metricPair has now been deleted
+        _metricPairs[newMet].insert(e);
+        pmIt->second = newMet;
+    }
+}
 
 int MeshObject::nVisibleFaces() {
     int count = 0;
@@ -1003,7 +1172,8 @@ void MeshObject::quadricSimplify() {
             Edge minCostEdge = *it;
             collapse(minCostEdge.first, minCostEdge.second, QUADRIC_APPROXIMATION_METHOD);
         }
-        else if (_aggressiveSimplification == true) {
+        else return;
+        /*else if (_aggressiveSimplification == true) {
             printf("All dQ uninvertible. Reverting to linear edge collapse.\n");
             Edge e = randomEdge();
             int tryCount = 0;
@@ -1030,7 +1200,7 @@ void MeshObject::quadricSimplify() {
                 else continue;
             }
             collapse(e.first, e.second, approximationMethod);
-        }
+        }*/
     }
 }
 
@@ -1048,7 +1218,7 @@ void MeshObject::doDraw()
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(int)*_triangleIndices.size(), &_triangleIndices[0], GL_STATIC_DRAW);
     glDrawElements(GL_TRIANGLES, _triangleIndices.size(), GL_UNSIGNED_INT, 0);
-    //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     
     if (_drawVertexNormals == false) return;
     
@@ -1067,151 +1237,7 @@ void MeshObject::doDraw()
 
 
 
-
-
-
-
-
-
-void ProgressiveMeshObject::readGeom() {
-    int lineNumber = 0;
-    printf("------------------------- READING .OFFPM FILE -------------------------\n");
-    string file = _iFileName;
-    string line;
-    ifstream modelfile(_iFileName);
-    if (!modelfile.is_open()) exit;
-    getline(modelfile, line);
-    lineNumber++;
-    if (line != "OFFPM") exit;
-    getline(modelfile, line);
-    lineNumber++;
-    vector<float> pl = parseLine(line, ' ');
-    int nV_full = pl[0];
-    int nF_full = pl[1];
-    getline(modelfile, line);
-    lineNumber++;
-    pl = parseLine(line, ' ');
-    int nV = pl[0];
-    int nF = pl[1];
-    int nC = pl[2];
-    int printStepV = ceil((float)nV / 100);
-    int printStepF = ceil((float)nF / 100);
-    int printStepC = ceil((float)nC / 100);
-    getline(modelfile, line);
-    pl = parseLine(line, ' ');
-    _xMin = pl[0];
-    _xMax = pl[1];
-    _yMin = pl[2];
-    _yMax = pl[3];
-    _zMin = pl[4];
-    _zMax = pl[5];
-    _complexity = nV;
-    _vertexPositions.resize(nV_full, vec3(0, 0, 0));
-    _vertexNormals.resize(nV_full, vec3(0, 0, 0));
-    _faces.resize(nF_full, { 0, 0, 0 });
-    _triangleIndices.resize(3 * nF_full, 0);
-    float xMin = 0;
-    float xMax = 0;
-    float yMin = 0;
-    float yMax = 0;
-    float zMin = 0;
-    float zMax = 0;
-    for (int i = 0; i < nV; i++){
-        if (i%printStepV == 0 || i == nV - 1) printf("We're on vertex %i/%i\r", i + 1, nV);
-        getline(modelfile, line);
-        lineNumber++;
-        pl = parseLine(line, ' ');
-        int v = pl[0];
-        float x = pl[1];
-        float y = pl[2];
-        float z = pl[3];
-        float nx = pl[4];
-        float ny = pl[5];
-        float nz = pl[6];
-        if (i == 0) { xMin = x; xMax = x; yMin = y; yMax = y; zMin = z; zMax = z; }
-        else {
-            if (x < xMin) xMin = x;
-            if (y < yMin) yMin = y;
-            if (z < zMin) zMin = z;
-            if (x > xMax) xMax = x;
-            if (y > yMax) yMax = y;
-            if (z > zMax) zMax = z;
-        }
-        _vertexPositions[v] = vec3(x, y, z);
-        _vertexNormals[v] = vec3(nx, ny, nz);
-    }
-    std::cout << std::endl;
-    for (int i = 0; i < nF; i++){
-        if (i%printStepF == 0 || i == nF - 1) printf("We're on face %i/%i\r", i + 1, nF);
-        getline(modelfile, line);
-        lineNumber++;
-        pl = parseLine(line, ' ');
-        int f = pl[0];
-        int v0 = pl[1];
-        int v1 = pl[2];
-        int v2 = pl[3];
-        _faces[f] = { v0, v1, v2 };
-        _triangleIndices[3 * f + 0] = v0;
-        _triangleIndices[3 * f + 1] = v1;
-        _triangleIndices[3 * f + 2] = v2;
-    }
-    _v0.reserve(nC);
-    _v1.reserve(nC);
-    _n0.reserve(nC);
-    _n1.reserve(nC);
-    _n.reserve(nC);
-    _xyz0.reserve(nC);
-    _xyz1.reserve(nC);
-    _xyz.reserve(nC);
-    _fVec.reserve(nC);
-    _fVec1.reserve(nC);
-    _fVecR.reserve(nC);
-    _fVecRijk.reserve(nC);
-    //_fVecRy.reserve(nC);
-    //_fVecRz.reserve(nC);
-    vector<int> f;
-    cout << endl;
-    for (int i = 0; i < nC; i++){
-        if (i%printStepC == 0 || i == nC - 1) printf("We're on collapse %i/%i\r", i + 1, nC);
-        getline(modelfile, line); /////
-        lineNumber++;
-        pl = parseLine(line, ' ');
-        _v0.push_back(pl[0]);
-        _xyz0.push_back(vec3(pl[1], pl[2], pl[3]));
-        _n0.push_back(vec3(pl[4], pl[5], pl[6]));
-        _xyz.push_back(vec3(pl[7], pl[8], pl[9]));
-        _n.push_back(vec3(pl[10], pl[11], pl[12]));
-        f.clear();
-        for (int j = 13; j < pl.size(); j++) f.push_back(pl[j]);
-        _fVec.push_back(f);
-        getline(modelfile, line); /////
-        lineNumber++;
-        pl = parseLine(line, ' ');
-        _v1.push_back(pl[0]);
-        _xyz1.push_back(vec3(pl[1], pl[2], pl[3]));
-        _n1.push_back(vec3(pl[4], pl[5], pl[6]));
-        f.clear();
-        for (int j = 7; j < pl.size(); j++) f.push_back(pl[j]);
-        _fVec1.push_back(f);
-        getline(modelfile, line); /////
-        lineNumber++;
-        pl = parseLine(line, ' ');
-        f.clear();
-        vector<vector<int>> ijk;
-        for (int j = 0; j < pl.size(); j += 4){
-            f.push_back(pl[j + 0]);
-            ijk.push_back({ (int)pl[j + 1], (int)pl[j + 2], (int)pl[j + 3] });
-        }
-        _fVecR.push_back(f);
-        _fVecRijk.push_back(ijk);
-    }
-    getline(modelfile, line);
-    printf("\n------------------------------------------------------------\n");
-    _geomReady = true;
-}
-
-
-void ProgressiveMeshObject::collapseTo(const float& newComplexity) {
+void MeshObject::collapseTo(const float& newComplexity) {
     float fOldCollapseIndex = (float)_vertexPositions.size()-_complexity; // this corresponds to the current mesh "adjacency" (BEFORE carrying out collapse[index])
     float fNewCollapseIndex = (float)_vertexPositions.size() - newComplexity; // these are both the index OF THE COLLAPSE
     fOldCollapseIndex = fmin(fmax(0, fOldCollapseIndex), _v0.size());

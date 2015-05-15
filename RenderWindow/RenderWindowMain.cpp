@@ -22,9 +22,9 @@ int main(int argc, char* argv[])
 
     Scene::Shader* rainbowShader = new Scene::Shader("shaders/rainbow_vert.glsl", "shaders/rainbow_frag.glsl");
 
-    std::string file = "teapot";
-    //Scene::MeshObject * meshObject = new Scene::MeshObject("models/" + file + ".off");
-    Scene::ProgressiveMeshObject * meshObject = new Scene::ProgressiveMeshObject("models/" + file + ".offpm");
+    std::string file = "cow";
+    Scene::MeshObject * meshObject = new Scene::MeshObject("models/" + file + ".off");
+    //Scene::MeshObject * meshObject = new Scene::MeshObject("models/" + file + ".offpm");
     meshObject->allowFins();
     world.assignShader(meshObject, rainbowShader);
     meshObject->readGeom();
@@ -88,9 +88,10 @@ int main(int argc, char* argv[])
 
     mainPanel.setWorld(&world);
     mainPanel.setCamera(cam);
+    mainPanel.setMeshObject(meshObject);
 
     GlutUI::Controls::Keyboard keyboard(&mainPanel);
-    GlutUI::Controls::Mouse mouse(&mainPanel, mainPanel.getCamera());
+    GlutUI::Controls::Mouse mouse(&mainPanel, mainPanel.getCamera(), mainPanel.getMeshObject());
 
     Scene::Edge e(0, 1); // 0,1,3 for fin removal testing on testpatch.off
     /* Keyboard hotkey assignments */

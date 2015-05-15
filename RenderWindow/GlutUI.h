@@ -159,14 +159,16 @@ public:
     void setWorld(Scene::World * world) { _world = world; }
     Scene::World * getWorld() { return _world; }
     void setCamera(Scene::Camera * camera) { _camera = camera; }
+    void setMeshObject(Scene::MeshObject * meshObject) { _meshObject = meshObject; }
 
     Scene::Camera * getCamera() { return _camera; }
-
+    Scene::MeshObject * getMeshObject() { return _meshObject; }
 private:
     std::vector<Button> _buttons;
     bool _persp;
     Scene::World * _world;
     Scene::Camera * _camera;
+    Scene::MeshObject * _meshObject;
 };
 
 /** Button Class **/
@@ -198,13 +200,15 @@ namespace Controls
     {
     public:
         //TODO replace with actual camera?
-        Mouse(Panel * panel, Scene::Camera * camera) : _panel(panel), _camera(camera) { init(); }
+        Mouse(Panel * panel, Scene::Camera * camera, Scene::MeshObject * meshObject) : _panel(panel), _camera(camera), _meshObject(meshObject) { init(); }
         void init();
 
     private:
         Panel * _panel;
         Scene::Camera * _camera;
+        Scene::MeshObject * _meshObject;
         int _lastx, _lasty;
+        int _lastlastx, _lastlasty;
         bool _buttons[3];
 
         void _mouse(int button, int state, int x, int y);

@@ -274,8 +274,7 @@ public:
     glm::vec3 mergedCoordinates(const int& v0, const int& v1) { return mergedCoordinates(v0, v1, _approximationMethod); }
     void collapse(const int& v0, const int& v1);
     void collapse(const int& v0, const int& v1, const int& approximationMethod);
-    void collapseTo(const float& dummy) { return; }
-    int complexity(){ return _adjacency.size(); }
+    void collapseTo(const float& newComplexity);
     void collapseRandomEdge(const int& approximationMethod = MIDPOINT_APPROXIMATION_METHOD);
 
     void makeProgressiveMeshFile();
@@ -292,12 +291,15 @@ public:
     glm::mat4 quadric(const int& v);
     float metric(const int& v0, const int& v1);
 
+    void updateMetrics(const int& v);
     void updateLocalQuadricsAndMetrics(const int& v);
     void quadricSimplify();
 
     void reComputeVertexNormals();
     void reComputeFaceNormals();
     void readGeom();
+    void readGeomOFF(); // read full data
+    void readGeomOFFPM(); // read progressive mesh
 
     float xMin() { return _xMin; }
     float xMax() { return _xMax; }
@@ -312,6 +314,7 @@ public:
         }
         printf("BLAH BLAH BLAH BLAH: %i\n", _adjacency.size());
     }
+    float complexity() { return _complexity; }
 
 protected:
     float _xMin;
@@ -375,23 +378,6 @@ protected:
     std::vector<std::vector<std::vector<int>>> _fVecRijk;
 
     float _complexity; // the current number of vertices
-};
-
-class ProgressiveMeshObject : public MeshObject {
-public:
-    ProgressiveMeshObject(std::string iFileName) : MeshObject(iFileName) {
-        _drawVertexNormals = false;
-        _iFileName = iFileName;
-    }
-    ~ProgressiveMeshObject() {
-        glBindVertexArray(0);
-        glDeleteVertexArrays(1, &_vertexArrayID);
-    }
-    void readGeom();
-    void collapseTo(const float& newComplexity);
-    void makeProgressiveMeshFile() { return; }
-    float complexity() { return _complexity; }
-protected:
 };
 
 
