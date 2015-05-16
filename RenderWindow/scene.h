@@ -277,7 +277,13 @@ public:
     float avgEdgeLength();
     bool isEdge(const int& v0, const int& v1);
     void doDraw();
-    int nCollapsablePairs() { return _pairs.size(); }
+    int nCollapsablePairs() {
+        int count = 0;
+        for (int i = 0; i < _nV; i++) {
+            count += _partners[i].size();
+        }
+        return count;
+    }
     int nVisibleVertices() { return _adjacency.size(); }
     int nVisibleFaces();
     std::vector<int> visibleFaces();

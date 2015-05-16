@@ -716,7 +716,6 @@ void MeshObject::collapse(const int& v0, const int& v1, const int& approximation
             _lineIndices[2 * it->first + 1] = 0;
         }
     }
-    int collapseCount = 1;
     int adjInSize = _adjacency.size();
     map<int, set<int>> adjIn = _adjacency;
     _nCollapses++;
@@ -844,11 +843,9 @@ void MeshObject::collapse(const int& v0, const int& v1, const int& approximation
                         fFin = *f;
                     }
                     else {
-                        collapseCount++;
                         printf("FIN found and removed\n");
                         finFound = true;
                         collapse(v0, vFin, BINARY_APPROXIMATION_METHOD); // to remove fin call collapseEdge(_,_) recursively
-                        //collapse(v0, uFin, approximationMethod); // NOTE: the order of arguments in both lines
                     }
                     break;
                 }
@@ -856,10 +853,8 @@ void MeshObject::collapse(const int& v0, const int& v1, const int& approximation
             if (finFound == true) continue;
         }
     }
-    int adjSize = _adjacency.size();
-    if (adjSize != _nV - _nCollapses) {
+    if (_adjacency.size() != _nV - _nCollapses) {
         printf("IMPOSSIBRU!!!!!! %i %i merged on collapse %i\n", v0, v1, _nCollapses);
-        printf("number of vertices went from %i to %i after %i collapses\n", adjInSize, adjSize, collapseCount);
         for (map<int, set<int>>::iterator it = adjIn.begin(); it != adjIn.end(); it++){
             if (it->first == v1) continue;
             map<int, set<int>>::iterator it2 = _adjacency.find(it->first);
@@ -895,7 +890,7 @@ void MeshObject::setT(const float& t) {
     printf("  Updating quadric error metrics between sufficiently close vertices\n");
     if (t == _t) return;
     vector<Edge> pairVec;
-    pairVec.reserve(_nV*(_nV - 1) / 2);
+    pairVec.reserve(2*_nV); // reserving more crashes
     if (t > _t) {
         int counter = 0;
         _pairs = priority_queue<Edge>();
