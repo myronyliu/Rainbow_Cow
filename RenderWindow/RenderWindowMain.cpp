@@ -22,10 +22,10 @@ int main(int argc, char* argv[])
 
     Scene::Shader* rainbowShader = new Scene::Shader("shaders/rainbow_vert.glsl", "shaders/rainbow_frag.glsl");
 
-    std::string file = "cow";
-    Scene::MeshObject * meshObject = new Scene::MeshObject("models/" + file + ".off");
-    //Scene::MeshObject * meshObject = new Scene::MeshObject("models/" + file + ".offpm");
-    meshObject->allowFins();
+    std::string file = "testpatch";
+    //Scene::MeshObject * meshObject = new Scene::MeshObject("models/" + file + ".off");
+    Scene::MeshObject * meshObject = new Scene::MeshObject("models/" + file + ".offpm");
+    //meshObject->allowFins();
     world.assignShader(meshObject, rainbowShader);
     meshObject->readGeom();
     float xMin = meshObject->xMin();

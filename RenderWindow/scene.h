@@ -223,28 +223,36 @@ struct VecComp {
 using Vertex = int;
 using Face = std::vector < int > ;
 struct Edge {
-    int _u;
-    int _v;
+    int _u0;
+    int _u1;
     glm::vec3 _op; // optimal position
-    float _m; // metric
-    int _c; // timestamp
-    Edge(const int& u, const int& v, const glm::vec3& op, const float& m, const int & c) { _u = u; _v = v; _op = op; _m = m; _c = c; }
-    Edge(const int& u, const int& v, const std::pair<glm::vec3, float>& opm, const int & c) { _u = u; _v = v; _op = opm.first; _m = opm.second; _c = c; }
+    float _qem; // metric
+    int _c0; // timestamp for last collapse
+    int _c1;
+
+    Edge(const int& u0, const int& u1, const glm::vec3& op, const float& qem, const int & c0, const int& c1) {
+        _u0 = u0; _u1 = u1; _op = op; _qem = qem; _c0 = c0; _c1 = c1;
+    }
+    Edge(const int& u0, const int& u1, const std::pair<glm::vec3, float>& opqem, const int & c0, const int& c1) {
+        _u0 = u0; _u1 = u1; _op = opqem.first; _qem = opqem.second; _c0 = c0; _c1 = c1;
+    }
     bool operator<(const Edge& rhs) const {
-        if (_c > rhs._c) return true;
-        else if (_c < rhs._c) return false;
-        if (_m > rhs._m) return true;
-        else if (_m < rhs._m) return false;
-        if (_u > rhs._u) return true;
-        else if (_u < rhs._u) return false;
-        if (_v > rhs._v) return true;
-        else if (_v < rhs._v) return false;
+        if (_qem > rhs._qem) return true;
+        if (_qem < rhs._qem) return false;
+        if (_c0 < rhs._c0) return true;  // these are reversed because we want the larger collapse index to show up first
+        if (_c0 > rhs._c0) return false; //
+        if (_c1 < rhs._c1) return true;  //
+        if (_c1 > rhs._c1) return false; //
+        if (_u0 > rhs._u0) return true;  //
+        if (_u0 < rhs._u0) return false;
+        if (_u1 > rhs._u1) return true;
+        if (_u1 < rhs._u1) return false;
         if (_op.x > rhs._op.x) return true;
-        else if (_op.x < rhs._op.x) return false;
+        if (_op.x < rhs._op.x) return false;
         if (_op.y > rhs._op.y) return true;
-        else if (_op.y < rhs._op.y) return false;
+        if (_op.y < rhs._op.y) return false;
         if (_op.z > rhs._op.z) return true;
-        else if (_op.z < rhs._op.z) return false;
+        if (_op.z < rhs._op.z) return false;
         return false;
     }
 };
@@ -324,7 +332,6 @@ public:
 protected:
     int _nV;
     int _nF;
-
     float _xMin;
     float _xMax;
     float _yMin;
@@ -362,6 +369,8 @@ protected:
     float _t; // the distance threshold for quadric simplification
     std::vector<glm::mat4> _quadrics;
     std::priority_queue<Edge> _pairs;
+    std::vector<int> _lastUpdate;
+    std::vector<std::set<int>> _partners;
 
     ////////////////////////////////////////
     ///// STUFF FOR PROGRESSIVE MESHES /////

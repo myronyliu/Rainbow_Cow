@@ -460,6 +460,9 @@ void MeshObject::readGeomOFF(){
     int printStepV = ceil((float)_nV / 100.0);
     int printStepF = ceil((float)_nF / 100.0);
     _complexity = _nV;
+    _nCollapses = 0;
+    _lastUpdate.resize(_nV, _nCollapses);
+    _partners.resize(_nV);
     _quadrics.resize(_nV);
     _vertexPositions.resize(2 * _nV, vec3(0, 0, 0));
     _vertexNormals.resize(2 * _nV, vec3(0, 0, 0));
@@ -699,6 +702,10 @@ pair<int, int> MeshObject::randomEdge() {
 
 void MeshObject::collapse(const int& v0, const int& v1) { collapse(v0, v1, _approximationMethod); }
 void MeshObject::collapse(const int& v0, const int& v1, const int& approximationMethod) { // the former vertex is kept. the latter is discarded from adjacency
+    if (v0 == v1) {
+        printf("CANNOT COLLAPSE VERTEX WITH ITSELF\n");
+        return;
+    }
     if (_adjacency.size() < 2) {
         printf("WARNING: No more pairs to collapse.\n");
         return;
@@ -713,6 +720,8 @@ void MeshObject::collapse(const int& v0, const int& v1, const int& approximation
     int adjInSize = _adjacency.size();
     map<int, set<int>> adjIn = _adjacency;
     _nCollapses++;
+    _lastUpdate[v0] = _nCollapses;
+    _lastUpdate[v1] = _nCollapses;
     _v0.push_back(v0);
     _v1.push_back(v1);
     _xyz0.push_back(_vertexPositions[v0]);
@@ -728,7 +737,6 @@ void MeshObject::collapse(const int& v0, const int& v1, const int& approximation
     set<int> fUnion, fIntersect; // shared faces along edge (typically two unless mesh isn't "closed")
     set<int> fDis0 = fSet0;
     set<int> fDis1 = fSet1;
-
 
     fUnion = fSet1;
     for (set<int>::iterator f0 = fSet0.begin(); f0 != fSet0.end(); f0++){
@@ -750,7 +758,19 @@ void MeshObject::collapse(const int& v0, const int& v1, const int& approximation
     vector<vector<int>> ijk;
     for (int i = 0; i < fShared.size(); i++) ijk.push_back(_faces[fShared[i]]);
     _fVecRijk.push_back(ijk);
-
+    
+    _partners[fmin(v0, v1)].erase(v1);
+    set<int> vSet1;
+    for (set<int>::iterator f = fSet1.begin(); f != fSet1.end(); f++) {
+        for (int i = 0; i < 3; i++) {
+            if (_faces[*f][i] == v0) continue;
+            if (_faces[*f][i] < v1) vSet1.insert(_faces[*f][i]);
+        }
+    }
+    for (set<int>::iterator v = vSet1.begin(); v != vSet1.end(); v++) {
+        _partners[*v].erase(v1);
+        _partners[fmin(v0,*v)].insert(fmax(v0,*v));
+    }
 
     vector<int> vFinVec; // the third vertices (!=v0 && !=v1) of the shared faces
     for (set<int>::iterator f = fIntersect.begin(); f != fIntersect.end(); f++) { // For each of the shared faces
@@ -763,6 +783,7 @@ void MeshObject::collapse(const int& v0, const int& v1, const int& approximation
             if (_faces[*f][corner] != v0 &&_faces[*f][corner] != v1) vFinVec.push_back(_faces[*f][corner]);
         }
     }
+
     // change all associations of faces adjacent to v1 from "v1 to v0"
     fSet1 = _adjacency[v1]; // this is important. we don't want to change _faces[fIntersect], since we need it later for writing to ProgMesh file
     for (set<int>::iterator f = fSet1.begin(); f != fSet1.end(); f++) {
@@ -883,9 +904,8 @@ void MeshObject::setT(const float& t) {
             for (map<int, set<int>>::iterator ut = _adjacency.begin(); ut != vt; ut++) {
                 int u = ut->first;
                 if (isEdge(u, v) || glm::distance(_vertexPositions[u], _vertexPositions[v]) < t) {
-                    pair<vec3, float> opm = metric(u, v);
-                    int c = _nCollapses;
-                    pairVec.push_back(Edge(u, v, opm, c));
+                    pairVec.push_back(Edge(u, v, metric(u, v), _nCollapses, _nCollapses));
+                    _partners[u].insert(v);
                     counter++;
                     if (counter % 100 == 0) printf("  %i\r", counter);
                 }
@@ -896,13 +916,23 @@ void MeshObject::setT(const float& t) {
         while (!_pairs.empty()) {
             Edge e = _pairs.top();
             _pairs.pop();
-            if (glm::distance(_vertexPositions[e._u], _vertexPositions[e._v]) > t) continue;
+            if (glm::distance(_vertexPositions[e._u0], _vertexPositions[e._u0]) > t) {
+                _partners[e._u0].erase(e._u1);
+                continue;
+            }
             pairVec.push_back(e);
         }
     }
     _pairs = priority_queue<Edge>(pairVec.begin(), pairVec.end());
     printf("  %i collapseable vertex pairs found\n", _pairs.size());
     _t = t;
+    /*for (int i = 0; i < _partners.size(); i++) {
+        printf("\n%i:",i);
+        for (set<int>::iterator it = _partners[i].begin(); it != _partners[i].end(); it++) {
+            printf(" %i", *it);
+        }
+    }
+    printf("\n");*/
 }
 bool MeshObject::isEdge(const int& v0, const int& v1) {
     set<int> adjFaces = _adjacency[v0];
@@ -1029,7 +1059,6 @@ void MeshObject::updateQuadricsAndMetrics(const int& v0, const int& v1, const se
         _pairs = priority_queue<Edge>();
         return;
     }
-    //printf("\n adjSize: %i  pairsSize: %i\n", _adjacency.size(), _pairs.size());
     _quadrics[v0] = _quadrics[v0] + _quadrics[v1];
     set<int> fSet = _adjacency[v0];
     set<int> vSet;
@@ -1038,37 +1067,13 @@ void MeshObject::updateQuadricsAndMetrics(const int& v0, const int& v1, const se
     }
     for (set<int>::iterator v = vSet.begin(); v != vSet.end(); v++) {
         _quadrics[*v] = quadric(*v);
+        _lastUpdate[*v] = _lastUpdate[v0];
     }
-    int c = _pairs.top()._c;
-    int counter = 0;
-    set<int>::iterator wIt;
-    set<int>::iterator uIt;
-    set<int>::iterator vIt;
-    while (true) {
-        Edge e = _pairs.top();
-        if (e._c == c + 1) break; // we've already updated the entire queue
-        _pairs.pop();
-        if (e._u == v1 || e._v == v1) {
-            int w = 0;
-            if (e._u == v1) w = e._v;
-            else w = e._u;
-            if (w == v0) continue; // v0 and v1 are now one, so remove this edge from the list of valid pairs
-            wIt = vShared.find(w);
-            if (wIt != vShared.end()) continue; // uv is one the edges of the collapsed shared faces between v0 and v1
-            e._u = fmin(v0, w);
-            e._v = fmax(v0, w);
-            pair<vec3, float> opm = metric(e._u, e._v);
-            e._op = opm.first;
-            e._m = opm.second;
+    //////////////////////////////////////////////////////////////////
+    for (set<int>::iterator v = vSet.begin(); v != vSet.end(); v++) {
+        for (set<int>::iterator p = _partners[*v].begin(); p != _partners[*v].end(); p++) {
+            _pairs.push(Edge(*v, *p, metric(*v, *p), _lastUpdate[*v], _lastUpdate[*p]));
         }
-        else if (vSet.find(e._u) != vSet.end() || vSet.find(e._v) != vSet.end()) {
-            pair<vec3, float> opm = metric(e._u, e._v);
-            e._op = opm.first;
-            e._m = opm.second;
-        }
-        e._c++;
-        _pairs.push(e);
-        counter++;
     }
 }
 
@@ -1113,8 +1118,26 @@ void MeshObject::quadricSimplify() {
         return;
     }
     Edge e = _pairs.top();
-    if (e._m < INFINITY) collapse(e._u, e._v, QUADRIC_APPROXIMATION_METHOD);
-    else collapse(e._u, e._v, MIDPOINT_APPROXIMATION_METHOD);
+    _pairs.pop();
+    //printf("%i %i %i %i\n", e._u0, e._u1, e._c0, e._c1);
+    while (e._c0 != _lastUpdate[e._u0] || e._c1 != _lastUpdate[e._u1]) {
+        if (_pairs.size() < 1) {
+            printf("No more pairs to collapse.\n");
+            return;
+        }
+        e = _pairs.top();
+        _pairs.pop();
+        //printf("  %i %i %i %i\n", e._u0, e._u1, e._c0, e._c1);
+    }
+    if (e._qem < INFINITY) collapse(e._u0, e._u1, QUADRIC_APPROXIMATION_METHOD);
+    else collapse(e._u0, e._u1, MIDPOINT_APPROXIMATION_METHOD);
+    /*for (int i = 0; i < _partners.size(); i++) {
+        printf("\n%i:", i);
+        for (set<int>::iterator it = _partners[i].begin(); it != _partners[i].end(); it++) {
+            printf(" %i", *it);
+        }
+    }
+    printf("\n");//*/
 }
 
 void MeshObject::doDraw()
