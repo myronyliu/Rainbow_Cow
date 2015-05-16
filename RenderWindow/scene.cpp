@@ -348,7 +348,7 @@ std::vector<float> parseLine(const std::string& line, const char& c) {
     std::vector<int> sp;
     sp.push_back(-1);
     int spNext = line.find(c, sp.back() + 1);
-    sp.push_back(spNext);
+    if (spNext!=std::string::npos) sp.push_back(spNext);
     while (spNext != std::string::npos) {
         spNext = line.find(c, sp.back() + 1);
         sp.push_back(spNext);
@@ -382,7 +382,7 @@ void MeshObject::makeProgressiveMeshFile() {
     ::ofstream oFile;
     oFile.open(_oFileName);
     oFile << "OFFPM\n";
-    oFile << nVertices() << ' ' << _faces.size() << '\n';
+    oFile << _nV << ' ' << _faces.size() << '\n';
     //oFile << _adjacency.size()) + ' ' + nVisibleFaces() + ' ' + _vertexPositions.size() - _adjacency.size() + '\n';
     oFile << _adjacency.size() << ' ' << nVisibleFaces() << ' ' << _nCollapses << '\n';
     oFile << _xMin << ' ' << _xMax << ' ' << _yMin << ' ' << _yMax << ' ' << _zMin << ' ' << _zMax << '\n';
@@ -455,28 +455,28 @@ void MeshObject::readGeomOFF(){
     if (line != "OFF") exit;
     getline(modelfile, line);
     vector<float> pl = parseLine(line, ' ');
-    int nV = pl[0];
-    int nF = pl[1];
-    int printStepV = ceil((float)nV / 100.0);
-    int printStepF = ceil((float)nF / 100.0);
-    _complexity = nV;
-    _quadrics.resize(nV);
-    _vertexPositions.resize(2 * nV, vec3(0, 0, 0));
-    _vertexNormals.resize(2 * nV, vec3(0, 0, 0));
-    _vertexColors.resize(nV, vec4(0, 0, 0, 0));
-    _faces.resize(nF, { 0, 0, 0 });
-    _triangleIndices.resize(3 * nF, 0);
-    _lineIndices.resize(2 * nF, 0);
-    _faceNormals.resize(nF,vec3(0,0,0));
-    _faceAreas.resize(nF, 0);
+    _nV = pl[0];
+    _nF = pl[1];
+    int printStepV = ceil((float)_nV / 100.0);
+    int printStepF = ceil((float)_nF / 100.0);
+    _complexity = _nV;
+    _quadrics.resize(_nV);
+    _vertexPositions.resize(2 * _nV, vec3(0, 0, 0));
+    _vertexNormals.resize(2 * _nV, vec3(0, 0, 0));
+    _vertexColors.resize(_nV, vec4(0, 0, 0, 0));
+    _faces.resize(_nF, { 0, 0, 0 });
+    _triangleIndices.resize(3 * _nF, 0);
+    _lineIndices.resize(2 * _nF, 0);
+    _faceNormals.resize(_nF, vec3(0, 0, 0));
+    _faceAreas.resize(_nF, 0);
     _xMin = 0;
     _xMax = 0;
     _yMin = 0;
     _yMax = 0;
     _zMin = 0;
     _zMax = 0;
-    for (int i = 0; i < nV; i++){
-        if (i%printStepV == 0 || i == nV - 1) printf("We're on vertex %i/%i\r", i + 1, nV);
+    for (int i = 0; i < _nV; i++){
+        if (i%printStepV == 0 || i == _nV - 1) printf("We're on vertex %i/%i\r", i + 1, _nV);
         getline(modelfile, line);
         pl = parseLine(line, ' ');
         float x = pl[0];
@@ -492,14 +492,14 @@ void MeshObject::readGeomOFF(){
             if (z > _zMax) _zMax = z;
         }
         _lineIndices[2 * i + 0] = i;
-        _lineIndices[2 * i + 1] = nV + i;
+        _lineIndices[2 * i + 1] = _nV + i;
         _vertexPositions[i] = vec3(x, y, z);
         _vertexColors[i] = vec4(1, 1, 1, 1);
     }
     std::cout << std::endl;
     float dAvg = 0; // rough estimate for average edge length. Not actually correct, but it suffices for picking appropriate _t
-    for (int i = 0; i < nF; i++){
-        if (i%printStepF == 0 || i == nF - 1) printf("We're on face %i/%i\r", i + 1, nF);
+    for (int i = 0; i < _nF; i++){
+        if (i%printStepF == 0 || i == _nF - 1) printf("We're on face %i/%i\r", i + 1, _nF);
         getline(modelfile, line);
         pl = parseLine(line, ' ');
         int v0 = pl[1];
@@ -515,7 +515,7 @@ void MeshObject::readGeomOFF(){
         float d = glm::distance(_vertexPositions[v0], _vertexPositions[v1]);
         d += glm::distance(_vertexPositions[v1], _vertexPositions[v2]);
         d += glm::distance(_vertexPositions[v2], _vertexPositions[v0]);
-        d /= 3 * nF;
+        d /= 3 * _nF;
         dAvg += d;
     }
     printf("\n");
@@ -524,8 +524,9 @@ void MeshObject::readGeomOFF(){
     printf("            Vertex Quadrics\n");
     reComputeQuadrics();
     printf("            Quadric Error Metrics...\n");
+    _t = -1;
     setT(0.0 * dAvg);
-    printf("------------------------------------------------------------\n");
+    printf("---------------------------------------------------------------------\n");
     _geomReady = true;
 }
 void MeshObject::readGeomOFFPM() {
@@ -541,8 +542,8 @@ void MeshObject::readGeomOFFPM() {
     getline(modelfile, line);
     lineNumber++;
     vector<float> pl = parseLine(line, ' ');
-    int nV_full = pl[0];
-    int nF_full = pl[1];
+    int _nV = pl[0];
+    int _nF = pl[1];
     getline(modelfile, line);
     lineNumber++;
     pl = parseLine(line, ' ');
@@ -561,10 +562,10 @@ void MeshObject::readGeomOFFPM() {
     _zMin = pl[4];
     _zMax = pl[5];
     _complexity = nV;
-    _vertexPositions.resize(nV_full, vec3(0, 0, 0));
-    _vertexNormals.resize(nV_full, vec3(0, 0, 0));
-    _faces.resize(nF_full, { 0, 0, 0 });
-    _triangleIndices.resize(3 * nF_full, 0);
+    _vertexPositions.resize(_nV, vec3(0, 0, 0));
+    _vertexNormals.resize(_nV, vec3(0, 0, 0));
+    _faces.resize(_nF, { 0, 0, 0 });
+    _triangleIndices.resize(3 * _nF, 0);
     float xMin = 0;
     float xMax = 0;
     float yMin = 0;
@@ -659,16 +660,16 @@ void MeshObject::readGeomOFFPM() {
         _fVecRijk.push_back(ijk);
     }
     getline(modelfile, line);
-    printf("\n------------------------------------------------------------\n");
+    printf("\n-----------------------------------------------------------------------\n");
     _geomReady = true;
 }
-Edge MeshObject::randomEdge() {
-    if (_adjacency.size() == 0) return Edge({ -1, -1 });
-    if (_adjacency.size() == 1) return Edge({ -1, -1 });
-    if (_adjacency.size() == 2) return Edge(_adjacency.begin()->first, _adjacency.rbegin()->first);
+pair<int, int> MeshObject::randomEdge() {
+    if (_adjacency.size() == 0) return pair<int, int>({ -1, -1 });
+    if (_adjacency.size() == 1) return pair<int, int>({ -1, -1 });
+    if (_adjacency.size() == 2) return pair<int, int>(_adjacency.begin()->first, _adjacency.rbegin()->first);
     //if (_adjacency.size() < 2) {
     //    printf("WARNING: No more pairs left to collapse,\n");
-    //    return Edge({ _adjacency.begin()->first, _adjacency.begin()->first });
+    //    return pair<int,int>({ _adjacency.begin()->first, _adjacency.begin()->first });
     //}
     int v0, v1;
     while (true) {
@@ -691,22 +692,18 @@ Edge MeshObject::randomEdge() {
                 break;
             }
         }
-        return Edge(fmin(v0,v1), fmax(v0,v1));
+        return pair<int, int>(fmin(v0, v1), fmax(v0, v1));
     }
 }
 
 
 void MeshObject::collapse(const int& v0, const int& v1) { collapse(v0, v1, _approximationMethod); }
 void MeshObject::collapse(const int& v0, const int& v1, const int& approximationMethod) { // the former vertex is kept. the latter is discarded from adjacency
-    if (v0 == v1) {
-        printf("ERROR: Cannot collapse vertex with itself.\n");
+    if (_adjacency.size() < 2) {
+        printf("WARNING: No more pairs to collapse.\n");
         return;
     }
-    if (_adjacency.size() < 3) {
-        printf("WARNING: No more triangles to collapse.\n");
-        return;
-    }
-    if (_adjacency.size() < 5) {
+    if (_adjacency.size() < 4) {
         for (map<int, set<int>>::iterator it = _adjacency.begin(); it != _adjacency.end(); it++) {
             _lineIndices[2 * it->first + 0] = 0;
             _lineIndices[2 * it->first + 1] = 0;
@@ -798,23 +795,12 @@ void MeshObject::collapse(const int& v0, const int& v1, const int& approximation
         n = normalize(n / (float)_adjacency[*v].size());
         nScale = sqrt(nScale / (float)_adjacency[*v].size()) / 8;
         _vertexNormals[*v] = n;
-        _vertexNormals[*v + nVertices()] = n;
-        _vertexPositions[*v + nVertices()] = _vertexPositions[*v] + nScale*n;
+        _vertexNormals[*v + _nV] = n;
+        _vertexPositions[*v + _nV] = _vertexPositions[*v] + nScale*n;
     }
     _n.push_back(_vertexNormals[v0]);
-    // Remove from _metrics all the vertex pairs that contain v1
-    for (map<int, set<int>>::iterator adj = _adjacency.begin(); adj != _adjacency.end(); adj++) {
-        Edge key(fmin(v1, adj->first), fmax(v1, adj->first));
-        map<Edge, float>::iterator m = _pairMetric.find(key);
-        if (m == _pairMetric.end()) continue;
-        map<float,set<Edge>>::iterator it = _metricPairs.find(m->second);
-        if (it->second.size()>1) it->second.erase(key);
-        else _metricPairs.erase(it);
-        _pairMetric.erase(m);
-    }
-    // And update Quadrics (BLARGH... this order of operations stuff is driving me mad)
-    _quadrics[v0] = _quadrics[v0] + _quadrics[v1];
-    updateMetrics(v0);
+    // Update the Quadric and Metric Priority Queue
+    updateQuadricsAndMetrics(v0, v1, set<int>(vFinVec.begin(), vFinVec.end()));
     // save the collapse to File (important that this comes BEFORE fin removal, since it is a recursive call)
     _fVec.push_back(vector<int>(_adjacency[v0].begin(), _adjacency[v0].end()));
     // FINALLY! remove the fins if any exist ---------------------------------------------
@@ -850,7 +836,7 @@ void MeshObject::collapse(const int& v0, const int& v1, const int& approximation
         }
     }
     int adjSize = _adjacency.size();
-    if (adjSize != nVertices() - _nCollapses) {
+    if (adjSize != _nV - _nCollapses) {
         printf("IMPOSSIBRU!!!!!! %i %i merged on collapse %i\n", v0, v1, _nCollapses);
         printf("number of vertices went from %i to %i after %i collapses\n", adjInSize, adjSize, collapseCount);
         for (map<int, set<int>>::iterator it = adjIn.begin(); it != adjIn.end(); it++){
@@ -879,46 +865,44 @@ void MeshObject::collapse(const int& v0, const int& v1, const int& approximation
 }
 
 void MeshObject::collapseRandomEdge(const int& approximationMethod) {
-    Edge re = randomEdge();
+    pair<int, int> re = randomEdge();
     collapse(re.first, re.second, approximationMethod);
 }
 
 void MeshObject::setT(const float& t) {
     printf("Setting distance threshold to %f\n", t);
     printf("  Updating quadric error metrics between sufficiently close vertices\n");
-    _t = t;
-    for (map<int, set<int>>::iterator jt = _adjacency.begin(); jt != _adjacency.end(); jt++) {
-        int j = jt->first;
-        for (map<int, set<int>>::iterator it = _adjacency.begin(); it != jt; it++) {
-            int i = it->first;
-            float newMet = metric(i, j);
-            Edge key(Edge(i, j)); // i<j is guaranteed. no need to sort
-            map<Edge, float>::iterator m = _pairMetric.find(key);
-            bool check = glm::distance(_vertexPositions[i], _vertexPositions[j]) < _t || isEdge(i, j);
-            if (m != _pairMetric.end()) {
-                float oldMet = m->second;
-                if (oldMet == newMet) continue;
-                map<float, set<Edge>>::iterator it = _metricPairs.find(oldMet); // this is for efficiency
-                if (newMet == -INFINITY || !check) {
-                    if (it->second.size() > 1) it->second.erase(key);
-                    else _metricPairs.erase(it);
-                    _pairMetric.erase(m);
+    if (t == _t) return;
+    vector<Edge> pairVec;
+    pairVec.reserve(_nV*(_nV - 1) / 2);
+    if (t > _t) {
+        int counter = 0;
+        _pairs = priority_queue<Edge>();
+        for (map<int, set<int>>::iterator vt = _adjacency.begin(); vt != _adjacency.end(); vt++) {
+            int v = vt->first;
+            for (map<int, set<int>>::iterator ut = _adjacency.begin(); ut != vt; ut++) {
+                int u = ut->first;
+                if (isEdge(u, v) || glm::distance(_vertexPositions[u], _vertexPositions[v]) < t) {
+                    pair<vec3, float> opm = metric(u, v);
+                    int c = _nCollapses;
+                    pairVec.push_back(Edge(u, v, opm, c));
+                    counter++;
+                    if (counter % 100 == 0) printf("  %i\r", counter);
                 }
-                else {
-                    if (it->second.size() > 1) it->second.erase(key);
-                    else _metricPairs.erase(it);
-                    _metricPairs[newMet].insert(key);
-                    m->second = newMet;
-                }
-            }
-            else {
-                if (newMet == -INFINITY || !check) continue;
-                _metricPairs[newMet].insert(key);
-                _pairMetric.emplace(key, newMet);
             }
         }
     }
-    printf("  Found %i collapseable vertex pairs\n", _pairMetric.size());
+    else { // T < _t
+        while (!_pairs.empty()) {
+            Edge e = _pairs.top();
+            _pairs.pop();
+            if (glm::distance(_vertexPositions[e._u], _vertexPositions[e._v]) > t) continue;
+            pairVec.push_back(e);
+        }
+    }
+    _pairs = priority_queue<Edge>(pairVec.begin(), pairVec.end());
+    printf("  %i collapseable vertex pairs found\n", _pairs.size());
+    _t = t;
 }
 bool MeshObject::isEdge(const int& v0, const int& v1) {
     set<int> adjFaces = _adjacency[v0];
@@ -944,7 +928,7 @@ bool MeshObject::atBoundary(const int& v) {
         }
     }
     sort(cs.begin(), cs.end());
-    for (int i = 0; i < cs.size(); i+=2) {
+    for (int i = 0; i < cs.size(); i += 2) {
         if (cs[i] != cs[i + 1]) return true;
     }
     return false;
@@ -992,8 +976,8 @@ void MeshObject::reComputeVertexNormals() {
         n = normalize(n / (float)adjFaces.size());
         nScale = sqrt(nScale / (float)adjFaces.size()) / 8;
         _vertexNormals[i->first] = n;
-        _vertexNormals[i->first + nVertices()] = n;
-        _vertexPositions[i->first + nVertices()] = _vertexPositions[i->first] + nScale*n;
+        _vertexNormals[i->first + _nV] = n;
+        _vertexPositions[i->first + _nV] = _vertexPositions[i->first] + nScale*n;
     }
 }
 vec3 MeshObject::mergedCoordinates(const int& v0, const int& v1, const int& approximationMethod) {
@@ -1015,24 +999,6 @@ void MeshObject::reComputeQuadrics() {
     }
     _quadricsReady = true;
 }
-void MeshObject::reComputeMetrics() {
-    for (map<Edge, float>::iterator m = _pairMetric.begin(); m != _pairMetric.end(); m++) {
-        Edge key = m->first;
-        float oldMet = m->second;
-        float newMet = metric(key.first, key.second);
-        map<float, set<Edge>>::iterator it = _metricPairs.find(oldMet);
-        bool check = glm::distance(_vertexPositions[key.first], _vertexPositions[key.second]) < _t || isEdge(key.first, key.second);
-        if (newMet == -INFINITY || !check) {
-            _pairMetric.erase(key);
-            if (it != _metricPairs.end()) _metricPairs[oldMet].erase(key);
-        }
-        else {
-            _pairMetric[key] = newMet;
-            if (it != _metricPairs.end()) _metricPairs[oldMet].erase(key);
-            _metricPairs[newMet].insert(key);
-        }
-    }
-}
 mat4 MeshObject::quadric(const int& v) {
     if (_faceNormalsReady == false) reComputeFaceNormals();
     mat4 Q(0.0f);
@@ -1044,10 +1010,7 @@ mat4 MeshObject::quadric(const int& v) {
     }
     return Q;
 }
-
-
-
-float MeshObject::metric(const int& v0, const int& v1) {
+pair<vec3, float> MeshObject::metric(const int& v0, const int& v1) {
     if (_quadricsReady == false) reComputeQuadrics();
     mat4 Q = _quadrics[v0] + _quadrics[v1];
     mat4 dQ = Q;
@@ -1055,70 +1018,57 @@ float MeshObject::metric(const int& v0, const int& v1) {
     dQ[1][3] = 0;
     dQ[2][3] = 0;
     dQ[3][3] = 1;
-    if (fabs(determinant(dQ)) < 0.000001) return INFINITY;
-    vec4 Q_vPrime = Q*inverse(dQ)*vec4(0, 0, 0, 1);
-    return dot(Q_vPrime, Q_vPrime);
+    if (fabs(determinant(dQ)) < 0.000001) return pair<vec3, float>(vec3(INFINITY, INFINITY, INFINITY), INFINITY);
+    vec4 vPrime = inverse(dQ)*vec4(0, 0, 0, 1);
+    vec4 Q_vPrime = Q*vPrime;
+    vec3 vPrimeInhomo(vPrime[0] / vPrime[3], vPrime[1] / vPrime[3], vPrime[2] / vPrime[3]);
+    return pair<vec3, float>(vPrimeInhomo, dot(Q_vPrime, Q_vPrime));
 }
-void MeshObject::updateLocalQuadricsAndMetrics(const int& v) {
-    set<int> adjFaces = _adjacency[v];
-    set<int> vSet({ v }); // v's neighbors (including itself)
-    for (set<int>::iterator f = adjFaces.begin(); f != adjFaces.end(); f++) {
-        for (int c = 0; c < 3; c++) {
-            int vCurrent = _faces[*f][c];
-            if (vCurrent == v) continue;
-            vSet.insert(vCurrent);
+void MeshObject::updateQuadricsAndMetrics(const int& v0, const int& v1, const set<int>&vShared) {
+    if (_pairs.size() < 2) {
+        _pairs = priority_queue<Edge>();
+        return;
+    }
+    //printf("\n adjSize: %i  pairsSize: %i\n", _adjacency.size(), _pairs.size());
+    _quadrics[v0] = _quadrics[v0] + _quadrics[v1];
+    set<int> fSet = _adjacency[v0];
+    set<int> vSet;
+    for (set<int>::iterator f = fSet.begin(); f != fSet.end(); f++) {
+        for (int i = 0; i < 3; i++) vSet.insert(_faces[*f][i]);
+    }
+    for (set<int>::iterator v = vSet.begin(); v != vSet.end(); v++) {
+        _quadrics[*v] = quadric(*v);
+    }
+    int c = _pairs.top()._c;
+    int counter = 0;
+    set<int>::iterator wIt;
+    set<int>::iterator uIt;
+    set<int>::iterator vIt;
+    while (true) {
+        Edge e = _pairs.top();
+        if (e._c == c + 1) break; // we've already updated the entire queue
+        _pairs.pop();
+        if (e._u == v1 || e._v == v1) {
+            int w = 0;
+            if (e._u == v1) w = e._v;
+            else w = e._u;
+            if (w == v0) continue; // v0 and v1 are now one, so remove this edge from the list of valid pairs
+            wIt = vShared.find(w);
+            if (wIt != vShared.end()) continue; // uv is one the edges of the collapsed shared faces between v0 and v1
+            e._u = fmin(v0, w);
+            e._v = fmax(v0, w);
+            pair<vec3, float> opm = metric(e._u, e._v);
+            e._op = opm.first;
+            e._m = opm.second;
         }
-    }
-    for (set<int>::iterator vIt = vSet.begin(); vIt != vSet.end(); vIt++) {
-        _quadrics[*vIt] = quadric(*vIt);
-    }
-    // Now that we have updated all local quadrics, we move onto updating all the metrics
-    for (set<int>::iterator vIt = vSet.begin(); vIt != vSet.end(); vIt++) {
-        for (map<int, set<int>>::iterator vf = _adjacency.begin(); vf != _adjacency.end(); vf++) {
-            if (*vIt == vf->first) continue;
-            float newMet = metric(*vIt, vf->first);
-            Edge key(fmin(*vIt, vf->first), fmax(*vIt, vf->first));
-            map<Edge, float>::iterator m = _pairMetric.find(key);
-            bool check = glm::distance(_vertexPositions[*vIt], _vertexPositions[vf->first]) < _t || isEdge(*vIt, vf->first);
-            if (m != _pairMetric.end()) {
-                float oldMet = m->second;
-                if (oldMet == newMet) continue;
-                map<float, set<Edge>>::iterator it = _metricPairs.find(oldMet); // this is for efficiency
-                if (newMet == -INFINITY || !check) {
-                    if (it->second.size() > 1) it->second.erase(key);
-                    else _metricPairs.erase(it); // the old pair in metricPair has now been deleted
-                    _pairMetric.erase(m);
-                }
-                else {
-                    if (it->second.size() > 1) it->second.erase(key);
-                    else _metricPairs.erase(it); // the old pair in metricPair has now been deleted
-                    _metricPairs[newMet].insert(key);
-                    m->second = newMet;
-                }
-            }
-            else {
-                if (newMet == -INFINITY || !check) continue;
-                _metricPairs[newMet].insert(key);
-                _pairMetric.emplace(key, newMet);
-            }
+        else if (vSet.find(e._u) != vSet.end() || vSet.find(e._v) != vSet.end()) {
+            pair<vec3, float> opm = metric(e._u, e._v);
+            e._op = opm.first;
+            e._m = opm.second;
         }
-    }
-}
-void MeshObject::updateMetrics(const int& v) {
-    for (map<Edge,float>::iterator pmIt = _pairMetric.begin(); pmIt != _pairMetric.end(); pmIt++) {
-        Edge e = pmIt->first;
-        if (e.first > v) break;
-        if (e.first != v && e.second != v) continue;
-        int u = e.first;
-        if (u == v) u = e.second;
-        float newMet = metric(u, v);
-        float oldMet = pmIt->second;
-        if (oldMet == newMet) continue;
-        map<float, set<Edge>>::iterator it = _metricPairs.find(oldMet);
-        if (it->second.size() > 1) it->second.erase(e);
-        else _metricPairs.erase(it); // the old pair in metricPair has now been deleted
-        _metricPairs[newMet].insert(e);
-        pmIt->second = newMet;
+        e._c++;
+        _pairs.push(e);
+        counter++;
     }
 }
 
@@ -1158,50 +1108,13 @@ float MeshObject::avgEdgeLength() { // approximate cause i don't feel like deali
 }
 
 void MeshObject::quadricSimplify() {
-    if (_adjacency.size() < 2) {
-        printf("No geometry left to collapse.\n");
+    if (_pairs.size() < 1) {
+        printf("No more pairs to collapse.\n");
         return;
     }
-    else {
-        float minCost = _metricPairs.begin()->first;
-        if (minCost < INFINITY) {
-            set<Edge> minCostEdgeSet = _metricPairs.begin()->second;
-            int rn = fmin(minCostEdgeSet.size() - 1, (float)minCostEdgeSet.size()*rand() / RAND_MAX);
-            set<Edge>::iterator it = minCostEdgeSet.begin();
-            for (int i = 0; i < rn; i++) it++;
-            Edge minCostEdge = *it;
-            collapse(minCostEdge.first, minCostEdge.second, QUADRIC_APPROXIMATION_METHOD);
-        }
-        else return;
-        /*else if (_aggressiveSimplification == true) {
-            printf("All dQ uninvertible. Reverting to linear edge collapse.\n");
-            Edge e = randomEdge();
-            int tryCount = 0;
-            int approximationMethod = MIDPOINT_APPROXIMATION_METHOD;
-            while (true) {
-                if (tryCount > 1000) return;
-                e = randomEdge();
-                tryCount++;
-                if (!atBoundary(e.first) && !atBoundary(e.second)) {
-                    approximationMethod = MIDPOINT_APPROXIMATION_METHOD;
-                    break;
-                }
-                else if (!atBoundary(e.first) && atBoundary(e.second)) {
-                    approximationMethod = BINARY_APPROXIMATION_METHOD;
-                    int temp = e.first;
-                    e.first = e.second;
-                    e.second = temp;
-                    break;
-                }
-                else if (atBoundary(e.first) && !atBoundary(e.second)) {
-                    approximationMethod = BINARY_APPROXIMATION_METHOD;
-                    break;
-                }
-                else continue;
-            }
-            collapse(e.first, e.second, approximationMethod);
-        }*/
-    }
+    Edge e = _pairs.top();
+    if (e._m < INFINITY) collapse(e._u, e._v, QUADRIC_APPROXIMATION_METHOD);
+    else collapse(e._u, e._v, MIDPOINT_APPROXIMATION_METHOD);
 }
 
 void MeshObject::doDraw()
@@ -1209,7 +1122,7 @@ void MeshObject::doDraw()
     if (!_geomReady) readGeom();
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_NORMAL_ARRAY);
-    
+
     glVertexPointer(3, GL_FLOAT, 0, &_vertexPositions[0]);
     glNormalPointer(GL_FLOAT, 0, &_vertexNormals[0]);
 
@@ -1219,9 +1132,9 @@ void MeshObject::doDraw()
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(int)*_triangleIndices.size(), &_triangleIndices[0], GL_STATIC_DRAW);
     glDrawElements(GL_TRIANGLES, _triangleIndices.size(), GL_UNSIGNED_INT, 0);
     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-    
+
     if (_drawVertexNormals == false) return;
-    
+
     /////////////////////////////
     ///// ALSO DRAW NORMALS /////
     /////////////////////////////
@@ -1238,7 +1151,7 @@ void MeshObject::doDraw()
 
 
 void MeshObject::collapseTo(const float& newComplexity) {
-    float fOldCollapseIndex = (float)_vertexPositions.size()-_complexity; // this corresponds to the current mesh "adjacency" (BEFORE carrying out collapse[index])
+    float fOldCollapseIndex = (float)_vertexPositions.size() - _complexity; // this corresponds to the current mesh "adjacency" (BEFORE carrying out collapse[index])
     float fNewCollapseIndex = (float)_vertexPositions.size() - newComplexity; // these are both the index OF THE COLLAPSE
     fOldCollapseIndex = fmin(fmax(0, fOldCollapseIndex), _v0.size());
     fNewCollapseIndex = fmin(fmax(0, fNewCollapseIndex), _v0.size());

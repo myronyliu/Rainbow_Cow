@@ -222,16 +222,30 @@ struct VecComp {
 
 using Vertex = int;
 using Face = std::vector < int > ;
-using Edge = std::pair < int, int > ;
-
-struct EdgeComp{
-    bool operator() (Edge lhs, Edge rhs) const {
-        if (lhs.first < rhs.first) return true;
-        else if (lhs.first > rhs.first) return false;
-        else {
-            if (lhs.second < rhs.second) return true;
-            else return false;
-        }
+struct Edge {
+    int _u;
+    int _v;
+    glm::vec3 _op; // optimal position
+    float _m; // metric
+    int _c; // timestamp
+    Edge(const int& u, const int& v, const glm::vec3& op, const float& m, const int & c) { _u = u; _v = v; _op = op; _m = m; _c = c; }
+    Edge(const int& u, const int& v, const std::pair<glm::vec3, float>& opm, const int & c) { _u = u; _v = v; _op = opm.first; _m = opm.second; _c = c; }
+    bool operator<(const Edge& rhs) const {
+        if (_c > rhs._c) return true;
+        else if (_c < rhs._c) return false;
+        if (_m > rhs._m) return true;
+        else if (_m < rhs._m) return false;
+        if (_u > rhs._u) return true;
+        else if (_u < rhs._u) return false;
+        if (_v > rhs._v) return true;
+        else if (_v < rhs._v) return false;
+        if (_op.x > rhs._op.x) return true;
+        else if (_op.x < rhs._op.x) return false;
+        if (_op.y > rhs._op.y) return true;
+        else if (_op.y < rhs._op.y) return false;
+        if (_op.z > rhs._op.z) return true;
+        else if (_op.z < rhs._op.z) return false;
+        return false;
     }
 };
 class MeshObject: public Object{
@@ -255,12 +269,12 @@ public:
     float avgEdgeLength();
     bool isEdge(const int& v0, const int& v1);
     void doDraw();
-    int nCollapsablePairs() { return _pairMetric.size(); }
+    int nCollapsablePairs() { return _pairs.size(); }
     int nVisibleVertices() { return _adjacency.size(); }
     int nVisibleFaces();
     std::vector<int> visibleFaces();
-    int nVertices() { return _vertexPositions.size() / 2; }
-    int nFaces() { return _faces.size(); }
+    int nVertices() { return _nV; }
+    int nFaces() { return _nF; }
     int approximationMethod() { return _approximationMethod; }
     void setApproximationMethod(const int& approximationMethod) { _approximationMethod = approximationMethod; }
     void setT(const float& t);
@@ -269,7 +283,7 @@ public:
     void setInFileName(const std::string& iFileName) { _iFileName = iFileName; _geomReady = false; }
     void setOutFileName(const std::string& oFileName) { _oFileName = oFileName; }
 
-    Edge randomEdge();
+    std::pair<int,int> randomEdge();
     glm::vec3 mergedCoordinates(const int& v0, const int& v1, const int& approximationMethod);
     glm::vec3 mergedCoordinates(const int& v0, const int& v1) { return mergedCoordinates(v0, v1, _approximationMethod); }
     void collapse(const int& v0, const int& v1);
@@ -285,14 +299,11 @@ public:
     glm::vec3 faceNormal(const int& f);
 
     void reComputeQuadrics();
-    void reComputeMetrics();
-    void reComputeQuadricsAndMetrics();
 
     glm::mat4 quadric(const int& v);
-    float metric(const int& v0, const int& v1);
+    std::pair<glm::vec3,float> metric(const int& v0, const int& v1);
 
-    void updateMetrics(const int& v);
-    void updateLocalQuadricsAndMetrics(const int& v);
+    void updateQuadricsAndMetrics(const int& v0, const int& v1, const std::set<int>& vShared); // updates _pairs ASSUMING THAT THE _PAIRS.TOP() was collapsed.
     void quadricSimplify();
 
     void reComputeVertexNormals();
@@ -308,15 +319,12 @@ public:
     float zMin() { return _zMin; }
     float zMax() { return _zMax; }
 
-    void test() {
-        for (std::map<int, std::set<int>>::iterator it = _adjacency.begin(); it != _adjacency.end(); it++) {
-            it->second = std::set<int>();
-        }
-        printf("BLAH BLAH BLAH BLAH: %i\n", _adjacency.size());
-    }
     float complexity() { return _complexity; }
 
 protected:
+    int _nV;
+    int _nF;
+
     float _xMin;
     float _xMax;
     float _yMin;
@@ -338,7 +346,6 @@ protected:
 
     std::string _iFileName;
     std::string _oFileName;
-    //std::string _collapseString;
 
     std::map<int, std::set<int>> _adjacency;
     GLuint _vertexArrayID;
@@ -352,20 +359,15 @@ protected:
     std::vector<int> _triangleIndices;
     std::vector<int> _lineIndices;
 
-    //std::vector<glm::vec3> _vertexNormalTailHeads;
-    //std::vector<glm::vec3> _vertexNormalTailHeadNormals;
-
     float _t; // the distance threshold for quadric simplification
     std::vector<glm::mat4> _quadrics;
-    std::map<Edge, float, EdgeComp> _pairMetric; // Quadric error metric for pairs of vertices that are within _t distance of one another
-    std::map<float, std::set<Edge>> _metricPairs;
+    std::priority_queue<Edge> _pairs;
 
     ////////////////////////////////////////
     ///// STUFF FOR PROGRESSIVE MESHES /////
     ////////////////////////////////////////
     std::vector<int> _v0;
     std::vector<int> _v1;
-    //std::vector<int> _v;
     std::vector<glm::vec3> _n0;
     std::vector<glm::vec3> _n1;
     std::vector<glm::vec3> _n;

@@ -93,7 +93,7 @@ int main(int argc, char* argv[])
     GlutUI::Controls::Keyboard keyboard(&mainPanel);
     GlutUI::Controls::Mouse mouse(&mainPanel, mainPanel.getCamera(), mainPanel.getMeshObject());
 
-    Scene::Edge e(0, 1); // 0,1,3 for fin removal testing on testpatch.off
+    std::pair<int,int> e(0, 1); // 0,1,3 for fin removal testing on testpatch.off
     /* Keyboard hotkey assignments */
     auto alambda = [&]() {
         e = meshObject->randomEdge();
@@ -109,15 +109,17 @@ int main(int argc, char* argv[])
     };
     int qsCount = 0;
     auto xlambda = [&]() {
+        //meshObject->quadricSimplify();
         int nCP = meshObject->nCollapsablePairs();
-        int n = fmax(1, sqrt(nCP) / 2);
+        int n = sqrt(nCP) / 2;
+        if (n == 0) n = fmin(nCP, 1);
         //n = 1;
         printf("%i  ", n);
         for (int i = 0; i < n; i++) {
             meshObject->quadricSimplify();
         }
         qsCount += n;
-        //printf(" total quadric Simplifications: %i\n", qsCount);
+        //printf(" total quadric Simplifications: %i\n", qsCount);*/
     };
     auto plambda = [&]() {
         printf("Writing progressive mesh data to %s\n", meshObject->outFileName());
