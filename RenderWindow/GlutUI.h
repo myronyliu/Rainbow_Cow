@@ -200,7 +200,8 @@ namespace Controls
     {
     public:
         //TODO replace with actual camera?
-        Mouse(Panel * panel, Scene::Camera * camera, Scene::MeshObject * meshObject) : _panel(panel), _camera(camera), _meshObject(meshObject) { init(); }
+        Mouse(Panel * panel, Scene::Camera * camera, Scene::MeshObject * meshObject) : _panel(panel), _camera(camera) { init(); }
+        //Mouse(Panel * panel, Scene::Camera * camera, Scene::MeshObject * meshObject) : _panel(panel), _camera(camera), _meshObject(meshObject) { init(); }
         void init();
 
     private:

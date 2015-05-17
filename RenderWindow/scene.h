@@ -209,6 +209,15 @@ private:
 
 
 
+template <class T>
+class reservable_priority_queue : public std::priority_queue<T>
+{
+public:
+    typedef typename std::priority_queue<T>::size_type size_type;
+    reservable_priority_queue(size_type capacity = 0) { reserve(capacity); };
+    void reserve(size_type capacity) { this->c.reserve(capacity); }
+    size_type capacity() const { return this->c.capacity(); }
+};
 
 struct VecComp {
     bool operator() (glm::vec3 lhs, glm::vec3 rhs) const
@@ -229,7 +238,7 @@ struct Edge {
     float _qem; // metric
     int _c0; // timestamp for last collapse
     int _c1;
-
+    Edge() { _u0 = 0; _u1 = 0; _op = glm::vec3(0, 0, 0); _qem = 0; _c0 = 0; _c1 = 0; }
     Edge(const int& u0, const int& u1, const glm::vec3& op, const float& qem, const int & c0, const int& c1) {
         _u0 = u0; _u1 = u1; _op = op; _qem = qem; _c0 = c0; _c1 = c1;
     }
@@ -267,6 +276,8 @@ public:
         _approximationMethod = QUADRIC_APPROXIMATION_METHOD;
         _iFileName = iFileName;
         _oFileName = iFileName + "pm";
+        _drawMode = 0;
+        _customColors = false;
     }
     ~MeshObject() {
         glBindVertexArray(0);
@@ -278,8 +289,9 @@ public:
     bool isEdge(const int& v0, const int& v1);
     void doDraw();
     int nCollapsablePairs() {
+        if (_pairs.size() == 1) return 0;
         int count = 0;
-        for (int i = 0; i < _nV; i++) {
+        for (int i = 0; i < nVertices(); i++) {
             count += _partners[i].size();
         }
         return count;
@@ -287,8 +299,6 @@ public:
     int nVisibleVertices() { return _adjacency.size(); }
     int nVisibleFaces();
     std::vector<int> visibleFaces();
-    int nVertices() { return _nV; }
-    int nFaces() { return _nF; }
     int approximationMethod() { return _approximationMethod; }
     void setApproximationMethod(const int& approximationMethod) { _approximationMethod = approximationMethod; }
     void setT(const float& t);
@@ -296,6 +306,7 @@ public:
     std::string outFileName() { return _oFileName; }
     void setInFileName(const std::string& iFileName) { _iFileName = iFileName; _geomReady = false; }
     void setOutFileName(const std::string& oFileName) { _oFileName = oFileName; }
+    void setVertexColor(const int& v, const glm::vec4& c) { _vertexColors[v] = c; }
 
     std::pair<int,int> randomEdge();
     glm::vec3 mergedCoordinates(const int& v0, const int& v1, const int& approximationMethod);
@@ -332,12 +343,25 @@ public:
     float yMax() { return _yMax; }
     float zMin() { return _zMin; }
     float zMax() { return _zMax; }
+    int nVertices() { return _dummy.size(); }
+    int nVerticesCollapsed() { return _dummyCollapsed.size(); }
+    int nFaces() { return _faces.size(); }
 
     float complexity() { return _complexity; }
+    std::string format() { return _format; }
+    int drawMode() { return _drawMode; }
+    void toggleDrawMode() { _drawMode = (_drawMode + 1) % 2; }
+    bool customColors() { return _customColors; }
+    void toggleCustomColors() { _customColors = !_customColors; }
+    std::map<int, std::set<int>> adjacency() { return _adjacency; }
+    std::set<int> adjacency(const int& v) { return _adjacency[v]; }
 
 protected:
-    int _nV;
-    int _nF;
+    std::string _format;
+    int _nVcollapsed;
+    int _nFcollapsed;
+    //int _nV;
+    //int _nF;
     float _xMin;
     float _xMax;
     float _yMin;
@@ -353,6 +377,8 @@ protected:
     bool _drawVertexNormals;
     bool _vertexNormalsReady;
     bool _aggressiveSimplification;
+    bool _customColors;
+    int _drawMode; // 0 for wire, 1 for filled triangles
 
     int _nCollapses;
     int _approximationMethod;
@@ -374,7 +400,7 @@ protected:
 
     float _t; // the distance threshold for quadric simplification
     std::vector<glm::mat4> _quadrics;
-    std::priority_queue<Edge> _pairs;
+    reservable_priority_queue<Edge> _pairs;
     std::vector<int> _lastUpdate;
     std::vector<std::set<int>> _partners;
 
@@ -393,6 +419,9 @@ protected:
     std::vector<std::vector<int>> _fVec;
     std::vector<std::vector<int>> _fVecR; // shared faces to remove
     std::vector<std::vector<std::vector<int>>> _fVecRijk;
+
+    std::vector<bool> _dummyCollapsed;
+    std::vector<bool> _dummy;
 
     float _complexity; // the current number of vertices
 };

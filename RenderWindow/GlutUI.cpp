@@ -319,16 +319,17 @@ void Controls::Mouse::_motion(int x, int y)
     }
     else if(_buttons[2])
     {
-        //_camera->setTz(_camera->getTz() * exp(0.01f*diffx) + 0.0001);
-        glm::vec3 v((float)diffx, (float)diffy, 0.0f);
+        _camera->setTz(_camera->getTz() * exp(0.01f*diffy) + 0.0001);
+        /*glm::vec3 v((float)diffx, (float)diffy, 0.0f);
         glm::vec3 vlast((float)diffxlast, (float)diffylast, 0.0f);
         float r = glm::cross(v, vlast).z;
         float dC = 0.1f * v.length();
         if (r > 0) dC = -dC;
-        _meshObject->collapseTo(_meshObject->complexity() + dC);
+        _meshObject->collapseTo(_meshObject->complexity() + dC);//*/
     }
     else if(_buttons[1])
     {
+        //_camera->setTz(_camera->getTz() * exp(0.01f*diffx) + 0.0001);
         _camera->setTx(_camera->getTx() + (float) 0.05f * diffx);
         _camera->setTy(_camera->getTy() - (float) 0.05f * diffy);
     }
