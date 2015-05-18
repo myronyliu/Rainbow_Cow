@@ -934,7 +934,22 @@ void MeshObject::setT(const float& t) {
     if (t > _t) {
         int counter = 0;
         _pairs = reservable_priority_queue<Edge>();
-        for (map<int, set<int>>::iterator vt = _adjacency.begin(); vt != _adjacency.end(); vt++) {
+        for (int i = 0; i < _faces.size(); i++) {
+            vector<int> f = _faces[i];
+            for (int j = 0; j < 3; j++) {
+                int u0 = fmin(f[j], f[(j + 1) % 3]);
+                int u1 = fmax(f[j], f[(j + 1) % 3]);
+                set<int>::iterator it = _partners[u0].find(u1);
+                if (it != _partners[u0].end()) continue; // already exists
+                _partners[u0].insert(u1);
+                _partners[u1].insert(u0);
+                pairVec.push_back(Edge(u0, u1, metric(u0, u1), _nCollapses, _nCollapses));
+            }
+            counter++;
+            if (counter % 100 == 0) printf("  %i\r", counter);
+        }
+
+        /*for (map<int, set<int>>::iterator vt = _adjacency.begin(); vt != _adjacency.end(); vt++) {
             int v = vt->first;
             for (map<int, set<int>>::iterator ut = _adjacency.begin(); ut != vt; ut++) {
                 int u = ut->first;
@@ -949,7 +964,7 @@ void MeshObject::setT(const float& t) {
                     if (counter % 100 == 0) printf("  %i\r", counter);
                 }
             }
-        }
+        }*/
     }
     else { // t < _t
         while (!_pairs.empty()) {
@@ -965,7 +980,7 @@ void MeshObject::setT(const float& t) {
     }
     priority_queue<Edge> pairs = priority_queue<Edge>(pairVec.begin(), pairVec.end());
     swap(_pairs, pairs);
-    printf("  %i collapseable vertex pairs found\n", _pairs.size());
+    /*printf("  %i collapseable vertex pairs found\n", _pairs.size());
     _t = t;
     for (int i = 0; i < nVertices(); i++) {
         printf("\n%i: ", i);
@@ -973,7 +988,7 @@ void MeshObject::setT(const float& t) {
             printf("%i ", *it);
         }
     }
-    printf("\n"); //
+    printf("\n"); //*/
 }
 bool MeshObject::isEdge(const int& v0, const int& v1) {
     set<int> adjFaces = _adjacency[v0];
@@ -1113,14 +1128,14 @@ void MeshObject::updateQuadricsAndMetrics(const int& v0, const int& v1, const se
     //////////////////////////////////////////////////////////////////
     set<Edge> edgeSet;
     for (set<int>::iterator v = vSet.begin(); v != vSet.end(); v++) {
-        printf("%i  ", _partners[*v].size());
+        //printf("%i  ", _partners[*v].size());
         for (set<int>::iterator p = _partners[*v].begin(); p != _partners[*v].end(); p++) {
             int x = fmin(*v, *p);
             int y = fmax(*v, *p);
             edgeSet.insert(Edge(x, y, metric(x, y), _lastUpdate[x], _lastUpdate[y]));
         }
     }
-    printf("\nedgeSet size: %i\n", edgeSet.size());
+    //printf("\nedgeSet size: %i\n", edgeSet.size());
     for (set<Edge>::iterator it = edgeSet.begin(); it != edgeSet.end(); it++) {
         _pairs.push(*it);
     }
