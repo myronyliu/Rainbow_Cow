@@ -330,8 +330,8 @@ void Controls::Mouse::_motion(int x, int y)
     else if(_buttons[1])
     {
         //_camera->setTz(_camera->getTz() * exp(0.01f*diffx) + 0.0001);
-        _camera->setTx(_camera->getTx() + (float) 0.05f * diffx);
-        _camera->setTy(_camera->getTy() - (float) 0.05f * diffy);
+        _camera->setTx(_camera->getTx() + (float) 0.001f * diffx);
+        _camera->setTy(_camera->getTy() - (float) 0.001f * diffy);
     }
     glutPostRedisplay();
 }

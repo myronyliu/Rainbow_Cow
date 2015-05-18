@@ -69,7 +69,7 @@ int main(int argc, char* argv[])
     //char* fileName = argv[1];
 
 
-    char* fileName = "models/bunny.off";
+    char* fileName = "models/sphere.off";
 
     Scene::MeshObject* meshObject = new Scene::MeshObject(fileName);
     world.assignShader(meshObject, rainbowShader);
@@ -126,6 +126,42 @@ int main(int argc, char* argv[])
     mainPanel.setMeshObject(meshObject);
     GlutUI::Controls::Keyboard keyboard(&mainPanel);
     GlutUI::Controls::Mouse mouse(&mainPanel, mainPanel.getCamera(), mainPanel.getMeshObject());
+    /*std::set<int> f11 = meshObject->adjacency(11);
+    std::set<int> f23 = meshObject->adjacency(23);
+    std::set<int> vSet;
+    for (auto it = f11.begin(); it != f11.end(); it++) {
+    for (int i = 0; i < 3; i++) {
+    vSet.insert(meshObject->faces(*it)[i]);
+    }
+    }
+    for (auto it = f23.begin(); it != f23.end(); it++) {
+    for (int i = 0; i < 3; i++) {
+    vSet.insert(meshObject->faces(*it)[i]);
+    }
+    }
+    for (auto it = vSet.begin(); it != vSet.end(); it++) {
+    printf("\n%i: ", *it);
+    std::set<int> asdf = meshObject->adjacency(*it);
+    for (auto i = asdf.begin(); i != asdf.end(); i++) {
+    printf("(%i,%i,%i) ", meshObject->faces(*i)[0], meshObject->faces(*i)[1], meshObject->faces(*i)[2]);
+    }
+    }
+    meshObject->collapse(11, 23, Scene::BINARY_APPROXIMATION_METHOD);
+    std::set<int> f11New = meshObject->adjacency(11);
+    std::set<int> vSetNew;
+    for (auto it = f11New.begin(); it != f11New.end(); it++) {
+    for (int i = 0; i < 3; i++) {
+    vSetNew.insert(meshObject->faces(*it)[i]);
+    }
+    }
+    printf("\n\n");
+    for (auto it = vSetNew.begin(); it != vSetNew.end(); it++) {
+    printf("\n%i: ", *it);
+    std::set<int> asdf = meshObject->adjacency(*it);
+    for (auto i = asdf.begin(); i != asdf.end(); i++) {
+    printf("(%i,%i,%i) ", meshObject->faces(*i)[0], meshObject->faces(*i)[1], meshObject->faces(*i)[2]);
+    }
+    }*/
     ///////////////////////////////////////
     ///// Keyboard Hotkey Assignments /////
     ///////////////////////////////////////
@@ -138,6 +174,7 @@ int main(int argc, char* argv[])
         }
     };
     auto slambda = [&]() {
+        
         if (meshObject->format() == "off") {
             int nVV = meshObject->nVisibleVertices();
             int n = fmax(1, nVV / 100);
@@ -168,28 +205,37 @@ int main(int argc, char* argv[])
     auto mlambda = [&]() {
         if (meshObject->format() == "off") {
             int collapseCount = 0;
-            for (int i = 0; i < meshObject->nCollapsablePairs(); i++) {
+            for (int i = 0; i < meshObject->nVertices(); i++) {
                 if (collapseCount % 10 == 0) printf("Pairs Collapsed: %i\r", collapseCount);
                 meshObject->quadricSimplify();
                 collapseCount++;
             }
-            printf("Pairs Collapsed: %i\n", collapseCount);
-            printf("Making Progressive Mesh File: %s\n", meshObject->outFileName());
+            //printf("Pairs Collapsed: %i\n", collapseCount);
+            printf("\nMaking Progressive Mesh File: %s\n", meshObject->outFileName());
             meshObject->makeProgressiveMeshFile();
         }
     };
     auto pluslambda = [&]() {
-        //std::string bmpName = fileName + std::to_string(bmpCounter) + ".bmp";
-        //SaveAsBMP(bmpName.c_str());
-        //bmpCounter++;
-        if (meshObject->format() == "offpm") meshObject->collapseTo((1.0f + complexityMultiplier)*meshObject->complexity());
+        if (meshObject->format() == "offpm") {
+            if (meshObject->complexity() < meshObject->nVertices()) {
+                //std::string bmpName = fileName + std::to_string(bmpCounter) + ".bmp";
+                //SaveAsBMP(bmpName.c_str());
+                //bmpCounter++;
+                meshObject->collapseTo((1.0f + complexityMultiplier)*meshObject->complexity());
+            }
+        }
     };
     auto minuslambda = [&]() {
         if (meshObject->format() == "offpm") meshObject->collapseTo((1.0 - complexityMultiplier)*meshObject->complexity());
     };
     auto rbracketlambda = [&]() {
         if (meshObject->format() == "offpm") {
-            meshObject->collapseTo(meshObject->complexity() + complexityIncrement);
+            if (meshObject->complexity() < meshObject->nVertices()) {
+                //std::string bmpName = fileName + std::to_string(bmpCounter) + ".bmp";
+                //SaveAsBMP(bmpName.c_str());
+                //bmpCounter++;
+                meshObject->collapseTo(meshObject->complexity() + complexityIncrement);
+            }
         }
     };
     auto lbracketlambda = [&]() {

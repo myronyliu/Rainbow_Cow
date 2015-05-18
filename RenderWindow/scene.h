@@ -294,9 +294,20 @@ public:
         for (int i = 0; i < nVertices(); i++) {
             count += _partners[i].size();
         }
+        return count / 2;
+    }
+    int nVisibleVertices() {
+        std::vector<int> vf = visibleFaces();
+        std::vector<int> v(nVertices(), 0);
+        for (int i = 0; i < vf.size(); i++) {
+            for (int j = 0; j < 3; j++) v[_faces[vf[i]][j]] = 1;
+        }
+        int count = 0;
+        for (int i = 0; i < v.size(); i++) {
+            count += v[i];
+        }
         return count;
     }
-    int nVisibleVertices() { return _adjacency.size(); }
     int nVisibleFaces();
     std::vector<int> visibleFaces();
     int approximationMethod() { return _approximationMethod; }
@@ -355,7 +366,19 @@ public:
     void toggleCustomColors() { _customColors = !_customColors; }
     std::map<int, std::set<int>> adjacency() { return _adjacency; }
     std::set<int> adjacency(const int& v) { return _adjacency[v]; }
+    void makeAdjacencyFromIndices();
 
+    std::pair<std::vector<glm::vec3>,std::vector<glm::vec4>> vRedundant() {
+        std::vector<glm::vec3> out;
+        std::vector<glm::vec4> out2;
+        for (int i = 0; i < _triangleIndices.size(); i++) {
+            out.push_back(_vertexPositions[_triangleIndices[i]]);
+            out2.push_back(_vertexColors[_triangleIndices[i]]);
+        }
+        return std::pair<std::vector<glm::vec3>, std::vector<glm::vec4>>(out, out2);
+    }
+
+    std::vector<int> faces(const int& f) { return _faces[f]; }
 protected:
     std::string _format;
     int _nVcollapsed;

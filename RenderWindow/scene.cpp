@@ -439,7 +439,7 @@ void MeshObject::readGeom() {
         readGeomOFF();
     }
     else if (line == "OFFPM") {
-        _drawVertexNormals = false;
+        _drawVertexNormals = true;
         _format = "offpm";
         readGeomOFFPM();
     }
@@ -481,7 +481,7 @@ void MeshObject::readGeomOFF(){
     _zMin = 0;
     _zMax = 0;
     for (int i = 0; i < nV; i++){
-        if (i%printStepV == 0 || i == nV - 1) printf("We're on vertex %i/%i\r", i + 1, nV);
+        if (i%printStepV == 0) printf("We're on vertex %i/%i\r", i + 1, nV);
         getline(modelfile, line);
         pl = parseLine(line, ' ');
         float x = pl[0];
@@ -501,10 +501,10 @@ void MeshObject::readGeomOFF(){
         _vertexPositions[i] = vec3(x, y, z);
         _vertexColors[i] = vec4(1, 1, 1, 1);
     }
-    std::cout << std::endl;
+    printf("We're on vertex %i/%i\n", nV, nV);
     float dAvg = 0; // rough estimate for average edge length. Not actually correct, but it suffices for picking appropriate _t
     for (int i = 0; i < nF; i++){
-        if (i%printStepF == 0 || i == nF - 1) printf("We're on face %i/%i\r", i + 1, nF);
+        if (i%printStepF == 0) printf("We're on face %i/%i\r", i + 1, nF);
         getline(modelfile, line);
         pl = parseLine(line, ' ');
         int v0 = pl[1];
@@ -523,7 +523,7 @@ void MeshObject::readGeomOFF(){
         d /= 3 * nF;
         dAvg += d;
     }
-    printf("\n");
+    printf("We're on face %i/%i\n", nF, nF);
     printf("PROCESSING: Vertex/Face Normals\n");
     reComputeVertexNormals();
     printf("            Vertex Quadrics\n");
@@ -533,6 +533,10 @@ void MeshObject::readGeomOFF(){
     setT(0.0 * dAvg);
     printf("---------------------------------------------------------------------\n");
     _geomReady = true;
+    /*for (int i = 0; i < nVertices(); i++) {
+        _vertexPositions[i + nVertices()] = _vertexPositions[i] + dAvg*_vertexNormals[i];
+    }*/
+
 }
 void MeshObject::readGeomOFFPM() {
     int lineNumber = 0;
@@ -576,6 +580,8 @@ void MeshObject::readGeomOFFPM() {
     _vertexNormals.resize(nV_full, vec3(0, 0, 0));
     _vertexColors.resize(nV_full, vec4(1, 1, 1, 1));
     _faces.resize(nF_full, { 0, 0, 0 });
+    //_faceAreas.resize(nF_full, 0);
+    //_faceNormals.resize(nF_full, { 0, 0, 0 });
     _triangleIndices.resize(3 * nF_full, 0);
     float xMin = 0;
     float xMax = 0;
@@ -584,7 +590,7 @@ void MeshObject::readGeomOFFPM() {
     float zMin = 0;
     float zMax = 0;
     for (int i = 0; i < nV; i++){
-        if (i%printStepV == 0 || i == nV - 1) printf("We're on vertex %i/%i\r", i + 1, nV);
+        if (i%printStepV == 0) printf("We're on vertex %i/%i\r", i + 1, nV);
         getline(modelfile, line);
         lineNumber++;
         pl = parseLine(line, ' ');
@@ -608,9 +614,9 @@ void MeshObject::readGeomOFFPM() {
         if (nx == INFINITY || ny == INFINITY || nz == INFINITY || nx == -INFINITY || ny == -INFINITY || nz == -INFINITY) _vertexNormals[v] = vec3(0, 0, 0);
         else _vertexNormals[v] = vec3(nx, ny, nz);
     }
-    std::cout << std::endl;
+    printf("We're on vertex %i/%i\n", nV, nV);
     for (int i = 0; i < nF; i++){
-        if (i%printStepF == 0 || i == nF - 1) printf("We're on face %i/%i\r", i + 1, nF);
+        if (i%printStepF == 0) printf("We're on face %i/%i\r", i + 1, nF);
         getline(modelfile, line);
         lineNumber++;
         pl = parseLine(line, ' ');
@@ -623,6 +629,7 @@ void MeshObject::readGeomOFFPM() {
         _triangleIndices[3 * f + 1] = v1;
         _triangleIndices[3 * f + 2] = v2;
     }
+    printf("We're on face %i/%i\r", nF, nF);
     _v0.reserve(nC);
     _v1.reserve(nC);
     _n0.reserve(nC);
@@ -638,7 +645,7 @@ void MeshObject::readGeomOFFPM() {
     vector<int> f;
     cout << endl;
     for (int i = 0; i < nC; i++){
-        if (i%printStepC == 0 || i == nC - 1) printf("We're on collapse %i/%i\r", i + 1, nC);
+        if (i%printStepC == 0) printf("We're on collapse %i/%i\r", i + 1, nC);
         getline(modelfile, line); /////
         lineNumber++;
         pl = parseLine(line, ' ');
@@ -674,8 +681,8 @@ void MeshObject::readGeomOFFPM() {
         _fVecR.push_back(f);
         _fVecRijk.push_back(ijk);
     }
-    getline(modelfile, line);
-    printf("\n-----------------------------------------------------------------------\n");
+    printf("We're on collapse %i/%i\n", nC, nC);
+    printf("-----------------------------------------------------------------------\n");
     _geomReady = true;
 }
 pair<int, int> MeshObject::randomEdge() {
@@ -839,7 +846,7 @@ void MeshObject::collapse(const int& v0, const int& v1, const int& approximation
         vec3 p[3] = { _vertexPositions[_faces[*f][0]], _vertexPositions[_faces[*f][1]], _vertexPositions[_faces[*f][2]] };
         for (int c = 0; c < 3; c++) vSet0.insert(_faces[*f][c]);
         vec3 n = cross(p[1] - p[0], p[2] - p[0]);
-        float nLength = n.length();
+        float nLength = glm::distance(vec3(0, 0, 0), n);
         _faceAreas[*f] = nLength / 2.0f;
         if (nLength>0) _faceNormals[*f] = n / nLength;
     }
@@ -852,7 +859,7 @@ void MeshObject::collapse(const int& v0, const int& v1, const int& approximation
             nScale += _faceAreas[*fs];
         }
         n = normalize(n / (float)_adjacency[*v].size());
-        nScale = sqrt(nScale / (float)_adjacency[*v].size()) / 8.0f;
+        nScale = sqrt(nScale / (float)_adjacency[*v].size());
         _vertexNormals[*v] = n;
         _vertexNormals[*v + nVertices()] = n;
         _vertexPositions[*v + nVertices()] = _vertexPositions[*v] + nScale*n;
@@ -892,6 +899,7 @@ void MeshObject::collapse(const int& v0, const int& v1, const int& approximation
             if (finFound == true) continue;
         }
     }
+
     /*if (_adjacency.size() != nVertices() - _nCollapses) {
         printf("IMPOSSIBRU!!!!!! %i %i merged on collapse %i\n", v0, v1, _nCollapses);
         for (map<int, set<int>>::iterator it = adjIn.begin(); it != adjIn.end(); it++){
@@ -931,7 +939,7 @@ void MeshObject::setT(const float& t) {
     if (t == _t) return;
     vector<Edge> pairVec;
     pairVec.reserve(3 * _faces.size() / 2); // reserving more crashes
-    if (t > _t) {
+    if (t == 0) {
         int counter = 0;
         _pairs = reservable_priority_queue<Edge>();
         for (int i = 0; i < _faces.size(); i++) {
@@ -948,8 +956,11 @@ void MeshObject::setT(const float& t) {
             counter++;
             if (counter % 100 == 0) printf("  %i\r", counter);
         }
-
-        /*for (map<int, set<int>>::iterator vt = _adjacency.begin(); vt != _adjacency.end(); vt++) {
+    }
+    else if (t > _t) {
+        int counter = 0;
+        _pairs = reservable_priority_queue<Edge>();
+        for (map<int, set<int>>::iterator vt = _adjacency.begin(); vt != _adjacency.end(); vt++) {
             int v = vt->first;
             for (map<int, set<int>>::iterator ut = _adjacency.begin(); ut != vt; ut++) {
                 int u = ut->first;
@@ -964,7 +975,7 @@ void MeshObject::setT(const float& t) {
                     if (counter % 100 == 0) printf("  %i\r", counter);
                 }
             }
-        }*/
+        }
     }
     else { // t < _t
         while (!_pairs.empty()) {
@@ -980,9 +991,9 @@ void MeshObject::setT(const float& t) {
     }
     priority_queue<Edge> pairs = priority_queue<Edge>(pairVec.begin(), pairVec.end());
     swap(_pairs, pairs);
-    /*printf("  %i collapseable vertex pairs found\n", _pairs.size());
+    printf("  %i collapseable vertex pairs found\n", _pairs.size());
     _t = t;
-    for (int i = 0; i < nVertices(); i++) {
+    /*for (int i = 0; i < nVertices(); i++) {
         printf("\n%i: ", i);
         for (set<int>::iterator it = _partners[i].begin(); it != _partners[i].end(); it++){
             printf("%i ", *it);
@@ -1025,7 +1036,7 @@ float MeshObject::faceArea(const int& f) {
     vec3 p2 = _vertexPositions[_faces[f][2]];
     vec3 e01 = p1 - p0; // edge 0->1 of face
     vec3 e02 = p2 - p0; //      0->2
-    return cross(e01, e02).length();
+    return glm::distance(vec3(0,0,0),cross(e01, e02));
 }
 vec3 MeshObject::faceNormal(const int& f) {
     vec3 p0 = _vertexPositions[_faces[f][0]];
@@ -1043,7 +1054,7 @@ void MeshObject::reComputeFaceNormals() {
         vec3 e01 = p1 - p0; // edge 0->1 of face
         vec3 e02 = p2 - p0; //      0->2
         vec3 n = cross(e01, e02);
-        float nLength = n.length();
+        float nLength = glm::distance(vec3(0, 0, 0), n);// .length();
         _faceAreas[f] = nLength / 2.0f;
         if (nLength>0) _faceNormals[f] = n / nLength;
     }
@@ -1060,7 +1071,7 @@ void MeshObject::reComputeVertexNormals() {
             nScale += _faceAreas[*j];
         }
         n = normalize(n / (float)adjFaces.size());
-        nScale = sqrt(nScale / (float)adjFaces.size()) / 8.0f;
+        nScale = sqrt(nScale / (float)adjFaces.size());
         _vertexNormals[i->first] = n;
         _vertexNormals[i->first + nVertices()] = n;
         _vertexPositions[i->first + nVertices()] = _vertexPositions[i->first] + nScale*n;
@@ -1204,11 +1215,20 @@ void MeshObject::doDraw()
     glEnableClientState(GL_NORMAL_ARRAY);
     if (_customColors==true) glEnableClientState(GL_COLOR_ARRAY);
     else glDisableClientState(GL_COLOR_ARRAY);
+    glEnableClientState(GL_COLOR_ARRAY);
+
+    /*pair<vector<vec3>, vector<vec4>> asdf = vRedundant();
+    vector<vec3> v = asdf.first;
+    vector<vec4> c = asdf.second;
+    glVertexPointer(3, GL_FLOAT,0, &v[0]);
+    glColorPointer(4, GL_FLOAT, 0, &c[0]);
+    glDrawArrays(GL_TRIANGLES, 0, v.size());
+    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);//*/
+
 
     glVertexPointer(3, GL_FLOAT, 0, &_vertexPositions[0]);
     glNormalPointer(GL_FLOAT, 0, &_vertexNormals[0]);
     glColorPointer(4, GL_FLOAT, 0, &_vertexColors[0]);
-
     GLuint IBO;
     glGenBuffers(1, &IBO);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
@@ -1225,7 +1245,7 @@ void MeshObject::doDraw()
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(int)*_lineIndices.size(), &_lineIndices[0], GL_STATIC_DRAW);
 
-    glDrawElements(GL_LINES, _lineIndices.size(), GL_UNSIGNED_INT, 0);
+    glDrawElements(GL_LINES, _lineIndices.size(), GL_UNSIGNED_INT, 0);//*/
 
     return;
 }
@@ -1296,4 +1316,14 @@ void MeshObject::collapseTo(const float& newComplexity) {
     _vertexPositions[_v1[newCollapseIndex]] = (1.0f - alpha)*_xyz1[newCollapseIndex] + alpha*_xyz[newCollapseIndex];
     _vertexNormals[_v0[newCollapseIndex]] = (1.0f - alpha)*_n0[newCollapseIndex] + alpha*_n[newCollapseIndex];
     _vertexNormals[_v1[newCollapseIndex]] = (1.0f - alpha)*_n1[newCollapseIndex] + alpha*_n[newCollapseIndex];
+}
+
+void MeshObject::makeAdjacencyFromIndices() {
+    vector<int> vv = visibleFaces();
+    for (int i = 0; i < vv.size(); i++) {
+        vector<int> f = _faces[vv[i]];
+        for (int j = 0; j < 3; j++) {
+            _adjacency[f[j]].insert(vv[i]);
+        }
+    }
 }
