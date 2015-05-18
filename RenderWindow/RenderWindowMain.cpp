@@ -69,7 +69,7 @@ int main(int argc, char* argv[])
     //char* fileName = argv[1];
 
 
-    char* fileName = "models/ico.off";
+    char* fileName = "models/cow.offpm";
 
     Scene::MeshObject* meshObject = new Scene::MeshObject(fileName);
     world.assignShader(meshObject, rainbowShader);

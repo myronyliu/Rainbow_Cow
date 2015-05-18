@@ -778,12 +778,18 @@ void MeshObject::collapse(const int& v0, const int& v1, const int& approximation
     for (int i = 0; i < fShared.size(); i++) ijk.push_back(_faces[fShared[i]]);
     _fVecRijk.push_back(ijk);
 
+    /*printf("collapsing %i %i\n", v0, v1);
+    Sphere* sphere = new Sphere(0.01,20,20);
+    sphere->setTx(_xyz.back()[0] + (_xMin + _xMax) / 2);
+    sphere->setTy(_xyz.back()[1] + (_yMin + _yMax) / 2);
+    sphere->setTz(_xyz.back()[2] + (_zMin + _zMax) / 2);
+    _world->addObject(sphere);*/
     _partners[v0].erase(v1);
     _partners[v1].erase(v0);
     set<int> vSet1;
     for (set<int>::iterator f = fSet1.begin(); f != fSet1.end(); f++) {
         for (int i = 0; i < 3; i++) {
-            if (_faces[*f][i] == v0) continue;
+            if (_faces[*f][i] == v0 || _faces[*f][i] == v1) continue;
             vSet1.insert(_faces[*f][i]);
         }
     }
@@ -792,6 +798,16 @@ void MeshObject::collapse(const int& v0, const int& v1, const int& approximation
         _partners[*v].insert(v0);
         _partners[v0].insert(*v);
     }
+
+
+    /*for (int i = 0; i < nVertices(); i++) {
+        printf("\n%i: ", i);
+        for (set<int>::iterator it = _partners[i].begin(); it != _partners[i].end(); it++){
+            printf("%i ", *it);
+        }
+    }
+    printf("\n");*/
+
 
     vector<int> vFinVec; // the third vertices (!=v0 && !=v1) of the shared faces
     for (set<int>::iterator f = fIntersect.begin(); f != fIntersect.end(); f++) { // For each of the shared faces
@@ -951,6 +967,13 @@ void MeshObject::setT(const float& t) {
     swap(_pairs, pairs);
     printf("  %i collapseable vertex pairs found\n", _pairs.size());
     _t = t;
+    for (int i = 0; i < nVertices(); i++) {
+        printf("\n%i: ", i);
+        for (set<int>::iterator it = _partners[i].begin(); it != _partners[i].end(); it++){
+            printf("%i ", *it);
+        }
+    }
+    printf("\n"); //
 }
 bool MeshObject::isEdge(const int& v0, const int& v1) {
     set<int> adjFaces = _adjacency[v0];
@@ -1088,12 +1111,18 @@ void MeshObject::updateQuadricsAndMetrics(const int& v0, const int& v1, const se
         _lastUpdate[*v] = _lastUpdate[v0];
     }
     //////////////////////////////////////////////////////////////////
+    set<Edge> edgeSet;
     for (set<int>::iterator v = vSet.begin(); v != vSet.end(); v++) {
+        printf("%i  ", _partners[*v].size());
         for (set<int>::iterator p = _partners[*v].begin(); p != _partners[*v].end(); p++) {
             int x = fmin(*v, *p);
             int y = fmax(*v, *p);
-            _pairs.push(Edge(x, y, metric(x, y), _lastUpdate[x], _lastUpdate[y]));
+            edgeSet.insert(Edge(x, y, metric(x, y), _lastUpdate[x], _lastUpdate[y]));
         }
+    }
+    printf("\nedgeSet size: %i\n", edgeSet.size());
+    for (set<Edge>::iterator it = edgeSet.begin(); it != edgeSet.end(); it++) {
+        _pairs.push(*it);
     }
 }
 
